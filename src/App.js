@@ -164,7 +164,7 @@ function Login({ onLogin, error }) {
     );
 }
 
-// --- Master Dashboard Component ---
+// --- Master Dashboard Component [FIXED LAYOUT] ---
 function MasterDashboard({ user, onLogout }) {
     const [users, setUsers] = useState([]);
     // State for new user form
@@ -410,40 +410,45 @@ function MasterDashboard({ user, onLogout }) {
                     </div>
                 </div>
                 <div className="bg-white p-6 rounded-lg shadow-md flex flex-col">
-                    <h2 className="text-2xl font-semibold mb-4">Add Material</h2>
-                    <form onSubmit={handleAddMaterial} className="space-y-4 p-4 border rounded-md">
-                      <div className="flex items-end gap-4">
-                          <div className="flex-grow">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">New Material Name</label>
-                            <input type="text" value={newMaterialName} onChange={(e) => setNewMaterialName(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" required />
-                          </div>
-                          <div className="flex-grow">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Material Type</label>
-                            <select value={newMaterialType} onChange={(e) => setNewMaterialType(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md">
-                              <option>Non-returnable</option>
-                              <option>Returnable</option>
-                            </select>
-                          </div>
-                          <div className="flex-grow">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Material Information</label>
-                            <select value={newMaterialInfo} onChange={(e) => setNewMaterialInfo(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md">
-                              <option>Non-Electronic</option>
-                              <option>Electronic</option>
-                            </select>
-                          </div>
-                         <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shrink-0">Add Material</button>
-                      </div>
-                    </form>
-                    <hr className="my-6"/>
+                    {/* Add Material Form */}
+                    <div className="flex-shrink-0">
+                        <h2 className="text-2xl font-semibold mb-4">Add Material</h2>
+                        <form onSubmit={handleAddMaterial} className="space-y-4 p-4 border rounded-md">
+                        <div className="flex items-end gap-4">
+                            <div className="flex-grow">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">New Material Name</label>
+                                <input type="text" value={newMaterialName} onChange={(e) => setNewMaterialName(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" required />
+                            </div>
+                            <div className="flex-grow">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Material Type</label>
+                                <select value={newMaterialType} onChange={(e) => setNewMaterialType(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md">
+                                <option>Non-returnable</option>
+                                <option>Returnable</option>
+                                </select>
+                            </div>
+                            <div className="flex-grow">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Material Information</label>
+                                <select value={newMaterialInfo} onChange={(e) => setNewMaterialInfo(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md">
+                                <option>Non-Electronic</option>
+                                <option>Electronic</option>
+                                </select>
+                            </div>
+                            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shrink-0">Add Material</button>
+                        </div>
+                        </form>
+                    </div>
+                    <hr className="my-6 flex-shrink-0"/>
+                    {/* Manage Materials Section */}
                     <div className="flex flex-col flex-grow min-h-0">
-                        <h2 className="text-2xl font-semibold mb-4">Manage Materials</h2>
-                        <div className="grid grid-cols-2 gap-4 overflow-y-auto">
-                            <div>
-                                <h3 className="font-semibold text-lg mb-2">Returnable Materials</h3>
-                                <div className="border rounded-md">
+                        <h2 className="text-2xl font-semibold mb-4 flex-shrink-0">Manage Materials</h2>
+                        <div className="grid grid-cols-2 gap-4 flex-grow min-h-0">
+                            {/* Returnable Materials Column */}
+                            <div className="flex flex-col min-h-0">
+                                <h3 className="font-semibold text-lg mb-2 flex-shrink-0">Returnable Materials</h3>
+                                <div className="border rounded-md overflow-y-auto max-h-96">
                                     <table className="w-full text-sm text-left">
-                                        <thead>
-                                            <tr className="bg-gray-50">
+                                        <thead className="sticky top-0 bg-gray-50">
+                                            <tr>
                                                 <th className="p-2 font-semibold">SL.NO</th>
                                                 <th className="p-2 font-semibold">Name</th>
                                                 <th className="p-2 font-semibold">Action</th>
@@ -471,12 +476,13 @@ function MasterDashboard({ user, onLogout }) {
                                     </table>
                                 </div>
                             </div>
-                            <div>
-                                <h3 className="font-semibold text-lg mb-2">Non-returnable Materials</h3>
-                                <div className="border rounded-md">
+                            {/* Non-Returnable Materials Column */}
+                            <div className="flex flex-col min-h-0">
+                                <h3 className="font-semibold text-lg mb-2 flex-shrink-0">Non-returnable Materials</h3>
+                                <div className="border rounded-md overflow-y-auto max-h-96">
                                     <table className="w-full text-sm text-left">
-                                         <thead>
-                                            <tr className="bg-gray-50">
+                                         <thead className="sticky top-0 bg-gray-50">
+                                            <tr>
                                                 <th className="p-2 font-semibold">SL.NO</th>
                                                 <th className="p-2 font-semibold">Name</th>
                                                 <th className="p-2 font-semibold">Action</th>
@@ -525,8 +531,9 @@ function CaseworkerDashboard({ user, onLogout }) {
       case 'dataEntry': return <DataEntryForm user={user} />;
       case 'consumerHandover': return <ConsumerHandover />;
       case 'consumerItems': return <ConsumerItemsReport />;
-      case 'annualVerification': return <PlaceholderComponent title="Annual Verification Report" />;
+      case 'annualVerification': return <AnnualVerificationReport user={user} />;
       case 'rejectedCase': return <RejectedCases />;
+      case 'verificationHistory': return <VerificationHistoryTab />;
       case 'reports': return <PlaceholderComponent title="Reports" />;
       default: return <DataEntryForm user={user} />;
     }
@@ -546,12 +553,234 @@ function CaseworkerDashboard({ user, onLogout }) {
         <NavTab tabId="consumerItems">Consumer Items</NavTab>
         <NavTab tabId="annualVerification">Annual Verification Report</NavTab>
         <NavTab tabId="rejectedCase">Rejected Cases</NavTab>
+        <NavTab tabId="verificationHistory">Verification History</NavTab>
         <NavTab tabId="reports">Reports</NavTab>
       </nav>
       <main className="flex-grow overflow-hidden">{renderContent()}</main>
     </div>
   );
 }
+
+// --- Verification History Tab (for Caseworker) [NEW] ---
+function VerificationHistoryTab() {
+    const [history, setHistory] = useState([]);
+
+    useEffect(() => {
+        const q = query(collection(db, "annual_verification_requests"), where("status", "!=", "pending"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const historyData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setHistory(historyData);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-GB');
+    };
+    
+    const formatTimestamp = (timestamp) => {
+        if (!timestamp) return 'N/A';
+        const date = timestamp.toDate();
+        return date.toLocaleDateString('en-GB');
+    };
+
+    return (
+        <div className="bg-white p-6 rounded-lg shadow-md h-full flex flex-col">
+            <h2 className="text-2xl font-semibold text-gray-700 mb-6">Annual Verification History</h2>
+            <div className="flex-grow overflow-y-auto">
+                {history.length === 0 ? (
+                    <p className="text-gray-500 text-center mt-8">No verification history found.</p>
+                ) : (
+                    history.map(request => (
+                        <div key={request.id} className="mb-6 p-4 border rounded-md">
+                            <div className="grid grid-cols-3 gap-4 mb-4">
+                                <div><span className="font-semibold">Request ID:</span> {request.id}</div>
+                                <div><span className="font-semibold">Date Submitted:</span> {formatTimestamp(request.submittedAt)}</div>
+                                <div><span className="font-semibold">Status:</span> <span className={`font-bold ${request.status === 'approved' ? 'text-green-600' : 'text-yellow-600'}`}>{request.status}</span></div>
+                            </div>
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="p-2">Material</th>
+                                        <th className="p-2">Serial No</th>
+                                        <th className="p-2">Original Condition</th>
+                                        <th className="p-2">New Condition</th>
+                                        <th className="p-2">Verified Date</th>
+                                        <th className="p-2">Remarks</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {request.items.map(item => (
+                                        <tr key={item.id} className="border-b">
+                                            <td className="p-2">{item.name}</td>
+                                            <td className="p-2">{item.serialNumber}</td>
+                                            <td className="p-2">{item.productCondition}</td>
+                                            <td className="p-2">{item.newCondition}</td>
+                                            <td className="p-2">{formatDate(item.physicallyVerifiedDate)}</td>
+                                            <td className="p-2">{item.remarks || '---'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ))
+                )}
+            </div>
+        </div>
+    );
+}
+
+
+// --- Annual Verification Report Component (for Caseworker) [NEW] ---
+function AnnualVerificationReport({ user }) {
+    const [returnableItems, setReturnableItems] = useState([]);
+    const [users, setUsers] = useState({});
+    const [itemConditions, setItemConditions] = useState({});
+    const [approvalRequests, setApprovalRequests] = useState({});
+
+    useEffect(() => {
+        const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+            const usersMap = {};
+            snapshot.forEach(doc => {
+                usersMap[doc.id] = doc.data();
+            });
+            setUsers(usersMap);
+        });
+
+        const unsubscribeApprovalRequests = onSnapshot(collection(db, 'approval_requests'), (snapshot) => {
+            const requestsMap = {};
+            snapshot.forEach(doc => {
+                requestsMap[doc.id] = doc.data();
+            });
+            setApprovalRequests(requestsMap);
+        });
+
+        const q = query(collection(db, "distribution_requests"));
+        const unsubscribeDistribution = onSnapshot(q, (snapshot) => {
+            const allReturnable = [];
+            snapshot.forEach(doc => {
+                const request = doc.data();
+                request.items.forEach((item, index) => {
+                    if (item.type === 'Returnable' && item.status === 'collected') {
+                        allReturnable.push({
+                            ...item,
+                            id: `${doc.id}-${index}`,
+                            consumerId: request.consumerId,
+                            distributionId: doc.id,
+                        });
+                    }
+                });
+            });
+            setReturnableItems(allReturnable);
+        });
+
+        return () => {
+            unsubscribeUsers();
+            unsubscribeApprovalRequests();
+            unsubscribeDistribution();
+        };
+    }, []);
+
+    const handleConditionChange = (itemId, condition) => {
+        setItemConditions(prev => ({ ...prev, [itemId]: condition }));
+    };
+
+    const handleSendToApproval = async () => {
+        const itemsToVerify = returnableItems.filter(item => itemConditions[item.id]);
+        if (itemsToVerify.length === 0) {
+            alert("Please update the condition of at least one item before sending for approval.");
+            return;
+        }
+
+        const verificationData = {
+            caseworkerId: user.uid,
+            caseworkerEmail: user.email,
+            submittedAt: serverTimestamp(),
+            status: 'pending',
+            items: itemsToVerify.map(item => ({
+                ...item,
+                newCondition: itemConditions[item.id]
+            }))
+        };
+
+        try {
+            await addDoc(collection(db, 'annual_verification_requests'), verificationData);
+            alert("Annual verification request sent for approval.");
+            setItemConditions({});
+        } catch (error) {
+            console.error("Error sending verification request: ", error);
+            alert("Failed to send verification request.");
+        }
+    };
+
+    const formatDate = (timestamp) => {
+        if (!timestamp) return 'N/A';
+        const date = timestamp.toDate();
+        return date.toLocaleDateString('en-GB');
+    };
+
+    return (
+        <div className="bg-white p-6 rounded-lg shadow-md h-full flex flex-col">
+            <h2 className="text-2xl font-semibold text-gray-700 mb-6">Annual Verification Report</h2>
+            <div className="flex-grow overflow-y-auto">
+                <table className="w-full text-left">
+                    <thead className="bg-gray-100 sticky top-0">
+                        <tr>
+                            <th className="p-3 text-sm font-semibold text-gray-600">Sl.No</th>
+                            <th className="p-3 text-sm font-semibold text-gray-600">Material Name</th>
+                            <th className="p-3 text-sm font-semibold text-gray-600">Model</th>
+                            <th className="p-3 text-sm font-semibold text-gray-600">Serial Number</th>
+                            <th className="p-3 text-sm font-semibold text-gray-600">Quantity</th>
+                            <th className="p-3 text-sm font-semibold text-gray-600">Consumer Name</th>
+                            <th className="p-3 text-sm font-semibold text-gray-600">Designation</th>
+                            <th className="p-3 text-sm font-semibold text-gray-600">Date of Taken</th>
+                            <th className="p-3 text-sm font-semibold text-gray-600">Condition of the Material</th>
+                            <th className="p-3 text-sm font-semibold text-gray-600">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {returnableItems.map((item, index) => {
+                            const consumer = users[item.consumerId] || {};
+                            return (
+                                <tr key={item.id} className="border-b">
+                                    <td className="p-3">{index + 1}</td>
+                                    <td className="p-3">{item.name}</td>
+                                    <td className="p-3">{item.modelNumber}</td>
+                                    <td className="p-3">{item.serialNumber}</td>
+                                    <td className="p-3">{item.requiredQuantity}</td>
+                                    <td className="p-3">{consumer.name}</td>
+                                    <td className="p-3">{consumer.designation}</td>
+                                    <td className="p-3">{formatDate(item.dateTaken)}</td>
+                                    <td className="p-3">
+                                        <select
+                                            value={itemConditions[item.id] || item.productCondition}
+                                            onChange={(e) => handleConditionChange(item.id, e.target.value)}
+                                            className="w-full p-2 border border-gray-300 rounded-md"
+                                        >
+                                            <option>Good</option>
+                                            <option>Normal</option>
+                                            <option>Bad</option>
+                                            <option>For Disposal</option>
+                                        </select>
+                                    </td>
+                                    <td className="p-3 capitalize">{item.status}</td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+            <div className="flex justify-end mt-6">
+                <button onClick={handleSendToApproval} className="px-6 py-2 bg-yellow-500 text-white font-semibold rounded-md hover:bg-yellow-600">
+                    SEND TO APPROVAL
+                </button>
+            </div>
+        </div>
+    );
+}
+
 
 // --- Rejected Cases Component (for Caseworker) ---
 function RejectedCases() {
@@ -1405,7 +1634,7 @@ function BulkAddModal({ data, onClose, onConfirm }) {
                                             <option>Good</option>
                                             <option>Normal</option>
                                             <option>Bad</option>
-                                            <option>Disposal</option>
+                                            <option>For Disposal</option>
                                         </select>
                                     </td>
                                 </tr>
@@ -1709,9 +1938,10 @@ function ApproverDashboard({ user, onLogout }) {
 
     const renderContent = () => {
         switch (activeTab) {
-            case 'careWorkerRequest': return <CaseWorkerRequestTab />;
+            case 'caseWorkerRequest': return <CaseWorkerRequestTab />;
             case 'consumerRequest': return <ConsumerRequestTab />;
             case 'existingItems': return <ExistingItemsTab />;
+            case 'annualVerification': return <AnnualVerificationTab />;
             default: return <CaseWorkerRequestTab />;
         }
     };
@@ -1730,11 +1960,243 @@ function ApproverDashboard({ user, onLogout }) {
                     <NavTab tabId="caseWorkerRequest">Case Worker Request</NavTab>
                     <NavTab tabId="consumerRequest">Consumer Request</NavTab>
                     <NavTab tabId="existingItems">Existing Items</NavTab>
+                    <NavTab tabId="annualVerification">Annual Verification</NavTab>
                 </div>
             </nav>
             <main className="flex-grow overflow-y-auto pt-6">
                 {renderContent()}
             </main>
+        </div>
+    );
+}
+
+// --- Annual Verification Tab (for Approver) [FIXED] ---
+function AnnualVerificationTab() {
+    const [verificationRequests, setVerificationRequests] = useState([]);
+    const [users, setUsers] = useState({});
+    const [approverConditions, setApproverConditions] = useState({});
+    const [verifiedDates, setVerifiedDates] = useState({});
+
+    useEffect(() => {
+        const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+            const usersMap = {};
+            snapshot.forEach(doc => {
+                usersMap[doc.id] = doc.data();
+            });
+            setUsers(usersMap);
+        });
+
+        const q = query(collection(db, "annual_verification_requests"), where("status", "==", "pending"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setVerificationRequests(requests);
+            // Initialize the approver conditions state
+            const initialConditions = {};
+            requests.forEach(req => {
+                req.items.forEach(item => {
+                    initialConditions[item.id] = item.newCondition;
+                });
+            });
+            setApproverConditions(initialConditions);
+        });
+        
+        return () => {
+            unsubscribeUsers();
+            unsubscribe();
+        };
+    }, []);
+    
+    const handleApproverConditionChange = (itemId, condition) => {
+        setApproverConditions(prev => ({ ...prev, [itemId]: condition }));
+    };
+    
+    const handleDateChange = (itemId, date) => {
+        const selectedDate = new Date(date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (selectedDate > today) {
+            alert("Invalid date. Please do not select a future date.");
+            return;
+        }
+        setVerifiedDates(prev => ({ ...prev, [itemId]: date }));
+    };
+
+    const handleApproval = async (request, newStatus) => {
+        const { id: requestId, items } = request;
+        const verificationRequestRef = doc(db, "annual_verification_requests", requestId);
+    
+        try {
+            await runTransaction(db, async (transaction) => {
+                // --- READ PHASE ---
+                // First, read all the necessary distribution documents if the status is 'verified-changed'.
+                const distributionDocsToUpdate = new Map();
+                if (newStatus === 'verified-changed') {
+                    // Create a map of distribution IDs to the items that need updating within them.
+                    const updatesByDocId = items.reduce((acc, item) => {
+                        const finalCondition = approverConditions[item.id] || item.newCondition;
+                        if (!acc[item.distributionId]) {
+                            acc[item.distributionId] = [];
+                        }
+                        acc[item.distributionId].push({ ...item, newCondition: finalCondition });
+                        return acc;
+                    }, {});
+
+                    // Asynchronously fetch all unique distribution documents that need updating.
+                    const readPromises = Object.keys(updatesByDocId).map(distId => {
+                        const distDocRef = doc(db, "distribution_requests", distId);
+                        return transaction.get(distDocRef).then(docSnapshot => ({
+                            id: distId,
+                            ref: distDocRef,
+                            snapshot: docSnapshot,
+                            itemsToUpdate: updatesByDocId[distId]
+                        }));
+                    });
+                    
+                    const results = await Promise.all(readPromises);
+                    
+                    results.forEach(result => {
+                        if (!result.snapshot.exists()) {
+                            throw new Error(`Distribution document ${result.id} not found!`);
+                        }
+                        distributionDocsToUpdate.set(result.id, result);
+                    });
+                }
+    
+                // --- WRITE PHASE ---
+                // Now that all reads are done, we can proceed with writes.
+    
+                // 1. Update the main annual verification request.
+                const updatedItemsForRequest = items.map(item => {
+                    const conditionChanged = approverConditions[item.id] && approverConditions[item.id] !== item.newCondition;
+                    return {
+                        ...item,
+                        remarks: conditionChanged ? "Physically Verified and Changed" : "",
+                        physicallyVerifiedDate: conditionChanged ? (verifiedDates[item.id] || '') : ''
+                    };
+                });
+                transaction.update(verificationRequestRef, { status: newStatus, items: updatedItemsForRequest });
+    
+                // 2. If necessary, update the related distribution documents.
+                if (newStatus === 'verified-changed') {
+                    distributionDocsToUpdate.forEach(docInfo => {
+                        const originalItems = docInfo.snapshot.data().items;
+                        const updatedItems = originalItems.map(originalItem => {
+                            const matchingUpdate = docInfo.itemsToUpdate.find(
+                                updateItem => updateItem.serialNumber === originalItem.serialNumber
+                            );
+                            if (matchingUpdate) {
+                                return { ...originalItem, productCondition: matchingUpdate.newCondition };
+                            }
+                            return originalItem;
+                        });
+                        transaction.update(docInfo.ref, { items: updatedItems });
+                    });
+                }
+            });
+            alert(`Request has been successfully processed as ${newStatus}.`);
+        } catch (error) {
+            console.error("Error processing verification request: ", error);
+            alert("Failed to process the request. Please try again.");
+        }
+    };
+    
+    const formatDate = (timestamp) => {
+        if (!timestamp) return 'N/A';
+        const date = timestamp.toDate();
+        return date.toLocaleDateString('en-GB');
+    };
+
+    return (
+        <div className="space-y-6">
+            {verificationRequests.length === 0 ? (
+                <p className="text-gray-500 text-center mt-8">No pending annual verification requests.</p>
+            ) : (
+                verificationRequests.map(request => {
+                    const isAnyConditionChanged = request.items.some(item => approverConditions[item.id] && approverConditions[item.id] !== item.newCondition);
+                    return (
+                        <div key={request.id} className="bg-white p-6 rounded-lg shadow-md">
+                            <div className="grid grid-cols-3 gap-4 mb-6">
+                                <div>
+                                    <label className="text-sm font-medium text-gray-500">Caseworker</label>
+                                    <p className="font-semibold">{request.caseworkerEmail}</p>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-gray-500">Date Submitted</label>
+                                    <p className="font-semibold">{formatDate(request.submittedAt)}</p>
+                                </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-gray-100">
+                                        <tr>
+                                            <th className="p-3 font-semibold">Sl.No</th>
+                                            <th className="p-3 font-semibold">Material Name</th>
+                                            <th className="p-3 font-semibold">Model</th>
+                                            <th className="p-3 font-semibold">Serial Number</th>
+                                            <th className="p-3 font-semibold">Consumer Name</th>
+                                            <th className="p-3 font-semibold">Date of Taken</th>
+                                            <th className="p-3 font-semibold">New Condition</th>
+                                            <th className="p-3 font-semibold">Verified Date</th>
+                                            <th className="p-3 font-semibold">Remarks</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {request.items.map((item, index) => {
+                                            const consumer = users[item.consumerId] || {};
+                                            const conditionChanged = approverConditions[item.id] && approverConditions[item.id] !== item.newCondition;
+                                            return (
+                                                <tr key={item.id} className="border-b">
+                                                    <td className="p-3">{index + 1}</td>
+                                                    <td className="p-3">{item.name}</td>
+                                                    <td className="p-3">{item.modelNumber}</td>
+                                                    <td className="p-3">{item.serialNumber}</td>
+                                                    <td className="p-3">{consumer.name || 'N/A'}</td>
+                                                    <td className="p-3">{formatDate(item.dateTaken)}</td>
+                                                    <td className="p-3">
+                                                        <select
+                                                            value={approverConditions[item.id] || item.newCondition}
+                                                            onChange={(e) => handleApproverConditionChange(item.id, e.target.value)}
+                                                            className="w-full p-2 border border-gray-300 rounded-md"
+                                                        >
+                                                            <option>Good</option>
+                                                            <option>Normal</option>
+                                                            <option>Bad</option>
+                                                            <option>For Disposal</option>
+                                                        </select>
+                                                    </td>
+                                                    <td className="p-3">
+                                                        {conditionChanged && (
+                                                            <input
+                                                                type="date"
+                                                                className="w-full p-2 border border-gray-300 rounded-md"
+                                                                value={verifiedDates[item.id] || ''}
+                                                                onChange={(e) => handleDateChange(item.id, e.target.value)}
+                                                            />
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3">
+                                                        {conditionChanged && "Physically Verified and Changed"}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="flex justify-end mt-6 gap-4">
+                                {isAnyConditionChanged && (
+                                    <button onClick={() => handleApproval(request, 'verified-changed')} className="px-6 py-2 bg-yellow-500 text-white font-semibold rounded-md hover:bg-yellow-600">
+                                        Verified and Changed
+                                    </button>
+                                )}
+                                <button onClick={() => handleApproval(request, 'approved')} className="px-6 py-2 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700">
+                                    Approve
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })
+            )}
         </div>
     );
 }
@@ -2084,6 +2546,7 @@ function ConsumerDashboard({ user, onLogout }) {
     const [approvedStock, setApprovedStock] = useState([]);
     const [distributedStock, setDistributedStock] = useState([]);
     const [availableItems, setAvailableItems] = useState([]);
+    const [approvalRequests, setApprovalRequests] = useState({});
     
     // Form state
     const [selectedMaterial, setSelectedMaterial] = useState('');
@@ -2107,6 +2570,29 @@ function ConsumerDashboard({ user, onLogout }) {
         const year = date.getFullYear();
         return `${day}/${month}/${year}`;
     };
+
+    const formatBillDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        const [year, month, day] = dateString.split('-');
+        return `${day}/${month}/${year}`;
+    };
+
+    // Listener for all approval requests to get the bill date
+    useEffect(() => {
+        const q = query(collection(db, "approval_requests"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const requests = {};
+            snapshot.forEach(doc => {
+                doc.data().items.forEach(item => {
+                    if (item.serialNumber) {
+                        requests[item.serialNumber] = doc.data().billDate;
+                    }
+                });
+            });
+            setApprovalRequests(requests);
+        });
+        return unsubscribe;
+    }, []);
 
     // Listener for approved items from caseworkers
     useEffect(() => {
@@ -2317,6 +2803,7 @@ function ConsumerDashboard({ user, onLogout }) {
                 ...item,
                 requestId: req.id,
                 requestStatus: req.status,
+                dateOfPurchase: approvalRequests[item.serialNumber] || null
             }))
         )
         .filter(item => item.status !== 'pending');
@@ -2350,6 +2837,7 @@ function ConsumerDashboard({ user, onLogout }) {
                 <td className="p-3">{item.name}</td>
                 {isReturnable && <td className="p-3">{item.serialNumber || 'N/A'}</td>}
                 {isReturnable && <td className="p-3">{item.modelNumber || 'N/A'}</td>}
+                {isReturnable && <td className="p-3">{formatBillDate(item.dateOfPurchase)}</td>}
                 <td className="p-3">{formatDate(item.dateTaken)}</td>
                 <td className="p-3">{item.requiredQuantity}</td>
                 <td className="p-3">{statusText}</td>
@@ -2472,6 +2960,7 @@ function ConsumerDashboard({ user, onLogout }) {
                                         <th className="p-3 text-sm font-semibold">MATERIAL</th>
                                         <th className="p-3 text-sm font-semibold">SERIAL NO</th>
                                         <th className="p-3 text-sm font-semibold">MODEL NO</th>
+                                        <th className="p-3 text-sm font-semibold">DATE OF PURCHASE</th>
                                         <th className="p-3 text-sm font-semibold">DATE TAKEN</th>
                                         <th className="p-3 text-sm font-semibold">QUANTITY</th>
                                         <th className="p-3 text-sm font-semibold">STATUS</th>
@@ -2483,7 +2972,7 @@ function ConsumerDashboard({ user, onLogout }) {
                                     {returnableRecords.length > 0 ? (
                                         returnableRecords.map((item, index) => renderRecordRow(item, index, true))
                                     ) : (
-                                        <tr><td colSpan="9" className="text-center p-8 text-gray-500">No returnable records found.</td></tr>
+                                        <tr><td colSpan="10" className="text-center p-8 text-gray-500">No returnable records found.</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -2494,4 +2983,3 @@ function ConsumerDashboard({ user, onLogout }) {
         </div>
     );
 }
-  
