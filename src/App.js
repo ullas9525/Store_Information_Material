@@ -1,8 +1,8 @@
 // Import necessary hooks and functions from React.
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 // Import Firebase core and specific services.
 import { initializeApp, deleteApp } from 'firebase/app';
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 import { getFirestore, doc, getDoc, collection, addDoc, onSnapshot, serverTimestamp, updateDoc, deleteDoc, query, where, getDocs, setDoc, runTransaction } from 'firebase/firestore';
 
 // --- IMPORTANT ---
@@ -34,20 +34,24 @@ export default function App() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const scripts = [
-        { src: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', id: 'jspdf-script' },
-        { src: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js', id: 'jspdf-autotable-script' },
-        { src: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', id: 'xlsx-script' }
-    ];
-    scripts.forEach(scriptInfo => {
-        if (!document.getElementById(scriptInfo.id)) {
+    const loadScript = (src, id, callback) => {
+        if (!document.getElementById(id)) {
             const script = document.createElement('script');
-            script.src = scriptInfo.src;
-            script.id = scriptInfo.id;
-            script.async = true;
+            script.src = src;
+            script.id = id;
+            script.onload = () => {
+                if (callback) callback();
+            };
             document.head.appendChild(script);
+        } else if (callback) {
+            callback();
         }
+    };
+
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf-script', () => {
+        loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js', 'jspdf-autotable-script');
     });
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script');
   }, []);
 
   const handleLogout = async () => {
@@ -163,6 +167,159 @@ function Login({ onLogin, error }) {
         </div>
     );
 }
+
+// --- Change Password Modal ---
+function ChangePasswordModal({ user, onClose }) {
+    const [oldPassword, setOldPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+
+    const handleChangePassword = async (e) => {
+        e.preventDefault();
+        setError('');
+        setSuccess('');
+
+        if (newPassword !== confirmPassword) {
+            setError("New passwords do not match.");
+            return;
+        }
+
+        if (!user) {
+            setError("No user is signed in.");
+            return;
+        }
+
+        try {
+            const credential = EmailAuthProvider.credential(user.email, oldPassword);
+            await reauthenticateWithCredential(user, credential);
+            await updatePassword(user, newPassword);
+            setSuccess("Password updated successfully!");
+            setTimeout(() => {
+                onClose();
+            }, 2000);
+        } catch (error) {
+            console.error("Password Change Error:", error);
+            setError("Failed to change password. Check your old password.");
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+            <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+                <h2 className="text-2xl font-bold mb-6">Change Password</h2>
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                    <input
+                        type="password"
+                        placeholder="Old Password"
+                        value={oldPassword}
+                        onChange={(e) => setOldPassword(e.target.value)}
+                        className="w-full p-2 border rounded-md"
+                        required
+                    />
+                    <input
+                        type="password"
+                        placeholder="New Password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="w-full p-2 border rounded-md"
+                        required
+                    />
+                    <input
+                        type="password"
+                        placeholder="Confirm New Password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="w-full p-2 border rounded-md"
+                        required
+                    />
+                    {error && <p className="text-red-500 text-sm">{error}</p>}
+                    {success && <p className="text-green-500 text-sm">{success}</p>}
+                    <div className="flex justify-end gap-4 pt-4">
+                        <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400">Cancel</button>
+                        <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Update</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// --- Logout Confirmation Modal ---
+function LogoutConfirmationModal({ onConfirm, onCancel }) {
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+            <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-sm">
+                <h2 className="text-xl font-bold mb-4 text-center">Confirm Logout</h2>
+                <p className="text-center text-gray-600 mb-6">Are you sure you want to log out?</p>
+                <div className="flex justify-center gap-4">
+                    <button onClick={onCancel} className="px-6 py-2 bg-gray-300 rounded-md hover:bg-gray-400">No</button>
+                    <button onClick={onConfirm} className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Yes, Logout</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- Settings Button and Dropdown ---
+function SettingsButton({ user, onLogout }) {
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    // Close dropdown if clicked outside
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsDropdownOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [dropdownRef]);
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <button onClick={() => setIsDropdownOpen(prev => !prev)} className="p-2 rounded-full hover:bg-gray-200" title="Settings">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            </button>
+
+            {isDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 py-1">
+                    <button
+                        onClick={() => {
+                            setIsPasswordModalOpen(true);
+                            setIsDropdownOpen(false);
+                        }}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                        Change Password
+                    </button>
+                    <button
+                        onClick={() => {
+                            setIsLogoutModalOpen(true);
+                            setIsDropdownOpen(false);
+                        }}
+                        className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                    >
+                        Logout
+                    </button>
+                </div>
+            )}
+
+            {isPasswordModalOpen && <ChangePasswordModal user={user} onClose={() => setIsPasswordModalOpen(false)} />}
+            {isLogoutModalOpen && <LogoutConfirmationModal onConfirm={onLogout} onCancel={() => setIsLogoutModalOpen(false)} />}
+        </div>
+    );
+}
+
 
 // --- Master Dashboard Component [FIXED LAYOUT] ---
 function MasterDashboard({ user, onLogout }) {
@@ -318,7 +475,7 @@ function MasterDashboard({ user, onLogout }) {
                 <h1 className="text-3xl font-bold text-gray-800">Master Portal</h1>
                 <div className="flex items-center gap-4">
                     <span className="text-gray-600">{user.email}</span>
-                    <button onClick={onLogout} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Logout</button>
+                    <SettingsButton user={user} onLogout={onLogout} />
                 </div>
             </header>
             <main className="flex-grow grid grid-cols-1 lg:grid-cols-2 gap-8 overflow-hidden">
@@ -534,7 +691,8 @@ function CaseworkerDashboard({ user, onLogout }) {
       case 'annualVerification': return <AnnualVerificationReport user={user} />;
       case 'rejectedCase': return <RejectedCases />;
       case 'verificationHistory': return <VerificationHistoryTab />;
-      case 'reports': return <PlaceholderComponent title="Reports" />;
+      case 'existingItems': return <ExistingItemsTabForCaseworker />;
+      case 'reports': return <ReportsTab />;
       default: return <DataEntryForm user={user} />;
     }
   };
@@ -544,7 +702,7 @@ function CaseworkerDashboard({ user, onLogout }) {
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4 md:mb-0">Caseworker Portal</h1>
         <div className="flex items-center gap-4">
           <span className="text-gray-600 text-sm md:text-base">{user.email}</span>
-          <button onClick={onLogout} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Logout</button>
+          <SettingsButton user={user} onLogout={onLogout} />
         </div>
       </header>
       <nav className="flex-shrink-0 mb-8 flex flex-wrap gap-2 p-2 bg-gray-100 rounded-lg">
@@ -554,11 +712,701 @@ function CaseworkerDashboard({ user, onLogout }) {
         <NavTab tabId="annualVerification">Annual Verification Report</NavTab>
         <NavTab tabId="rejectedCase">Rejected Cases</NavTab>
         <NavTab tabId="verificationHistory">Verification History</NavTab>
+        <NavTab tabId="existingItems">Existing Items</NavTab>
         <NavTab tabId="reports">Reports</NavTab>
       </nav>
       <main className="flex-grow overflow-hidden">{renderContent()}</main>
     </div>
   );
+}
+
+// --- Reports Tab Component (for Caseworker) [FIXED] ---
+function ReportsTab() {
+    const [reportData, setReportData] = useState([]);
+    const [monthlyReportData, setMonthlyReportData] = useState([]);
+    const [annualReportData, setAnnualReportData] = useState([]);
+    const [fromDate, setFromDate] = useState('');
+    const [toDate, setToDate] = useState('');
+    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [activeReportTab, setActiveReportTab] = useState('dateReport');
+
+    const handleGenerateDateReport = async () => {
+        if (!fromDate || !toDate) {
+            setReportData([]);
+            return;
+        }
+
+        const startDate = new Date(fromDate);
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);
+
+        const approvalQuery = query(
+            collection(db, "approval_requests"),
+            where("billDate", ">=", fromDate),
+            where("billDate", "<=", toDate)
+        );
+        const approvalSnapshot = await getDocs(approvalQuery);
+        
+        const purchasedMap = new Map();
+        approvalSnapshot.forEach(doc => {
+            const request = doc.data();
+            if (request.status === 'approved' || request.status === 'partially-approved') {
+                request.items.forEach(item => {
+                    if (item.status === 'approved') {
+                        const currentQty = purchasedMap.get(item.name) || 0;
+                        purchasedMap.set(item.name, currentQty + parseInt(item.quantity, 10));
+                    }
+                });
+            }
+        });
+
+        const distributionQuery = query(
+            collection(db, "distribution_requests"),
+            where("submittedAt", ">=", startDate),
+            where("submittedAt", "<=", endDate)
+        );
+        const distributionSnapshot = await getDocs(distributionQuery);
+
+        const distributedMap = new Map();
+        distributionSnapshot.forEach(doc => {
+            const request = doc.data();
+            request.items.forEach(item => {
+                if (item.status === 'collected') {
+                    const currentQty = distributedMap.get(item.name) || 0;
+                    distributedMap.set(item.name, currentQty + parseInt(item.requiredQuantity, 10));
+                }
+            });
+        });
+
+        const allMaterialNames = new Set([...purchasedMap.keys(), ...distributedMap.keys()]);
+        
+        const finalReportData = Array.from(allMaterialNames).map(name => {
+            const totalPurchased = purchasedMap.get(name) || 0;
+            const totalGiven = distributedMap.get(name) || 0;
+            return {
+                name,
+                totalPurchased,
+                totalGiven,
+                totalBalance: totalPurchased - totalGiven,
+            };
+        });
+
+        setReportData(finalReportData);
+    };
+
+    const handleGenerateMonthlyReport = async () => {
+        const [year, month] = selectedMonth.split('-').map(Number);
+        const firstDayOfSelectedMonth = new Date(year, month - 1, 1);
+        const lastDayOfSelectedMonth = new Date(year, month, 0);
+        lastDayOfSelectedMonth.setHours(23, 59, 59, 999);
+
+        const allMaterialsQuery = collection(db, 'materials');
+        const materialsSnapshot = await getDocs(allMaterialsQuery);
+        const allMaterialNames = materialsSnapshot.docs.map(doc => doc.data().name);
+
+        const allPurchasesQuery = query(
+            collection(db, "approval_requests"),
+            where("billDate", "<=", selectedMonth + '-' + lastDayOfSelectedMonth.getDate())
+        );
+        const allPurchasesSnapshot = await getDocs(allPurchasesQuery);
+
+        const allDistributionsQuery = query(
+            collection(db, "distribution_requests"),
+            where("submittedAt", "<=", lastDayOfSelectedMonth)
+        );
+        const allDistributionsSnapshot = await getDocs(allDistributionsQuery);
+
+        const reportMap = new Map();
+        allMaterialNames.forEach(name => {
+            reportMap.set(name, {
+                name, purchasedLastMonth: 0, purchasedThisMonth: 0,
+                givenLastMonth: 0, givenThisMonth: 0, balance: 0,
+            });
+        });
+
+        allPurchasesSnapshot.forEach(doc => {
+            const request = doc.data();
+            if (request.status === 'approved' || request.status === 'partially-approved') {
+                const billDate = new Date(request.billDate);
+                request.items.forEach(item => {
+                    if (item.status === 'approved') {
+                        const data = reportMap.get(item.name);
+                        if (data) {
+                            const quantity = parseInt(item.quantity, 10) || 0;
+                            if (billDate < firstDayOfSelectedMonth) {
+                                data.purchasedLastMonth += quantity;
+                            } else {
+                                data.purchasedThisMonth += quantity;
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
+        allDistributionsSnapshot.forEach(doc => {
+            const request = doc.data();
+            if (request.submittedAt) {
+                const submittedAtDate = request.submittedAt.toDate();
+                request.items.forEach(item => {
+                    if (item.status === 'collected') {
+                        const data = reportMap.get(item.name);
+                        if (data) {
+                            const quantity = parseInt(item.requiredQuantity, 10) || 0;
+                            if (submittedAtDate < firstDayOfSelectedMonth) {
+                                data.givenLastMonth += quantity;
+                            } else {
+                                data.givenThisMonth += quantity;
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
+        const finalReportData = Array.from(reportMap.values()).map(data => {
+            const totalPurchased = data.purchasedLastMonth + data.purchasedThisMonth;
+            const totalGiven = data.givenLastMonth + data.givenThisMonth;
+            data.balance = totalPurchased - totalGiven;
+            return data;
+        }).filter(data => data.balance !== 0 || data.purchasedThisMonth > 0 || data.givenThisMonth > 0);
+
+        setMonthlyReportData(finalReportData);
+    };
+
+    const handleGenerateAnnualReport = async () => {
+        const year = parseInt(selectedYear, 10);
+        const firstDayOfYear = new Date(year, 0, 1);
+        const lastDayOfYear = new Date(year, 11, 31);
+        lastDayOfYear.setHours(23, 59, 59, 999);
+
+        const allMaterialsQuery = collection(db, 'materials');
+        const materialsSnapshot = await getDocs(allMaterialsQuery);
+        const allMaterialNames = materialsSnapshot.docs.map(doc => doc.data().name);
+
+        const allPurchasesQuery = query(
+            collection(db, "approval_requests"),
+            where("billDate", "<=", `${year}-12-31`)
+        );
+        const allPurchasesSnapshot = await getDocs(allPurchasesQuery);
+
+        const allDistributionsQuery = query(
+            collection(db, "distribution_requests"),
+            where("submittedAt", "<=", lastDayOfYear)
+        );
+        const allDistributionsSnapshot = await getDocs(allDistributionsQuery);
+
+        const reportMap = new Map();
+        allMaterialNames.forEach(name => {
+            reportMap.set(name, {
+                name, purchasedLastYear: 0, purchasedThisYear: 0,
+                givenLastYear: 0, givenThisYear: 0, balance: 0,
+            });
+        });
+
+        allPurchasesSnapshot.forEach(doc => {
+            const request = doc.data();
+            if (request.status === 'approved' || request.status === 'partially-approved') {
+                const billDate = new Date(request.billDate);
+                request.items.forEach(item => {
+                    if (item.status === 'approved') {
+                        const data = reportMap.get(item.name);
+                        if (data) {
+                            const quantity = parseInt(item.quantity, 10) || 0;
+                            if (billDate < firstDayOfYear) {
+                                data.purchasedLastYear += quantity;
+                            } else {
+                                data.purchasedThisYear += quantity;
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
+        allDistributionsSnapshot.forEach(doc => {
+            const request = doc.data();
+            if (request.submittedAt) {
+                const submittedAtDate = request.submittedAt.toDate();
+                request.items.forEach(item => {
+                    if (item.status === 'collected') {
+                        const data = reportMap.get(item.name);
+                        if (data) {
+                            const quantity = parseInt(item.requiredQuantity, 10) || 0;
+                            if (submittedAtDate < firstDayOfYear) {
+                                data.givenLastYear += quantity;
+                            } else {
+                                data.givenThisYear += quantity;
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
+        const finalReportData = Array.from(reportMap.values()).map(data => {
+            const totalPurchased = data.purchasedLastYear + data.purchasedThisYear;
+            const totalGiven = data.givenLastYear + data.givenThisYear;
+            data.balance = totalPurchased - totalGiven;
+            return data;
+        }).filter(data => data.balance !== 0 || data.purchasedThisYear > 0 || data.givenThisYear > 0);
+
+        setAnnualReportData(finalReportData);
+    };
+
+    useEffect(() => {
+        if (activeReportTab === 'dateReport') {
+            handleGenerateDateReport();
+        } else if (activeReportTab === 'monthlyReport') {
+            handleGenerateMonthlyReport();
+        } else if (activeReportTab === 'annualReport') {
+            handleGenerateAnnualReport();
+        }
+    }, [toDate, fromDate, activeReportTab, selectedMonth, selectedYear]);
+
+    const exportToPDF = () => {
+        if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
+            alert("PDF export library is not loaded yet. Please try again in a moment.");
+            return;
+        }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+    
+        if (typeof doc.autoTable !== 'function') {
+            alert("PDF autoTable plugin is not loaded yet. Please try again in a moment.");
+            return;
+        }
+        
+        if (activeReportTab === 'dateReport') {
+            doc.text("Date Wise Report", 14, 15);
+            doc.autoTable({
+                head: [['SL.NO', 'MATERIAL', 'TOTAL PURCHASED', 'TOTAL GIVEN', 'BALANCE']],
+                body: reportData.map((row, index) => [
+                    index + 1, row.name, row.totalPurchased, row.totalGiven, row.totalBalance,
+                ]),
+                startY: 20, theme: 'grid',
+            });
+            doc.save('date_report.pdf');
+        } else if (activeReportTab === 'monthlyReport') {
+            doc.text("Monthly Report", 14, 15);
+            doc.autoTable({
+                head: [
+                    [{ content: 'SL.NO', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } }, 
+                     { content: 'MATERIAL', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } }, 
+                     { content: 'TOTAL PURCHASED', colSpan: 2, styles: { halign: 'center' } }, 
+                     { content: 'TOTAL GIVEN', colSpan: 2, styles: { halign: 'center' } }, 
+                     { content: 'BALANCE', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } }],
+                    ['UPTO LAST MONTH', 'THIS MONTH', 'UPTO LAST MONTH', 'THIS MONTH']
+                ],
+                body: monthlyReportData.map((row, index) => [
+                    index + 1, row.name, row.purchasedLastMonth, row.purchasedThisMonth,
+                    row.givenLastMonth, row.givenThisMonth, row.balance,
+                ]),
+                startY: 20, theme: 'grid', headStyles: { fillColor: [22, 160, 133], textColor: 255, fontStyle: 'bold' }
+            });
+            doc.save('monthly_report.pdf');
+        } else if (activeReportTab === 'annualReport') {
+            doc.text("Annual Report", 14, 15);
+            doc.autoTable({
+                head: [
+                    [{ content: 'SL.NO', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } }, 
+                     { content: 'MATERIAL', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } }, 
+                     { content: 'TOTAL PURCHASED', colSpan: 2, styles: { halign: 'center' } }, 
+                     { content: 'TOTAL GIVEN', colSpan: 2, styles: { halign: 'center' } }, 
+                     { content: 'BALANCE', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } }],
+                    ['UPTO LAST YEAR', 'THIS YEAR', 'UPTO LAST YEAR', 'THIS YEAR']
+                ],
+                body: annualReportData.map((row, index) => [
+                    index + 1, row.name, row.purchasedLastYear, row.purchasedThisYear,
+                    row.givenLastYear, row.givenThisYear, row.balance,
+                ]),
+                startY: 20, theme: 'grid', headStyles: { fillColor: [22, 160, 133], textColor: 255, fontStyle: 'bold' }
+            });
+            doc.save('annual_report.pdf');
+        }
+    };
+
+    const exportToDoc = () => {
+        let content = '';
+        let title = '';
+        let headers = '';
+        let body = '';
+
+        if (activeReportTab === 'dateReport') {
+            title = 'Date Wise Report';
+            headers = '<th>SL.NO</th><th>MATERIAL</th><th>TOTAL PURCHASED</th><th>TOTAL GIVEN</th><th>BALANCE</th>';
+            reportData.forEach((row, index) => {
+                body += `<tr><td>${index + 1}</td><td>${row.name}</td><td>${row.totalPurchased}</td><td>${row.totalGiven}</td><td>${row.totalBalance}</td></tr>`;
+            });
+        } else if (activeReportTab === 'monthlyReport') {
+            title = 'Monthly Report';
+            headers = '<th rowspan="2">SL.NO</th><th rowspan="2">MATERIAL</th><th colspan="2">TOTAL PURCHASED</th><th colspan="2">TOTAL GIVEN</th><th rowspan="2">BALANCE</th></tr><tr><th>UPTO LAST MONTH</th><th>THIS MONTH</th><th>UPTO LAST MONTH</th><th>THIS MONTH</th>';
+            monthlyReportData.forEach((row, index) => {
+                body += `<tr><td>${index + 1}</td><td>${row.name}</td><td>${row.purchasedLastMonth}</td><td>${row.purchasedThisMonth}</td><td>${row.givenLastMonth}</td><td>${row.givenThisMonth}</td><td>${row.balance}</td></tr>`;
+            });
+        } else if (activeReportTab === 'annualReport') {
+            title = 'Annual Report';
+            headers = '<th rowspan="2">SL.NO</th><th rowspan="2">MATERIAL</th><th colspan="2">TOTAL PURCHASED</th><th colspan="2">TOTAL GIVEN</th><th rowspan="2">BALANCE</th></tr><tr><th>UPTO LAST YEAR</th><th>THIS YEAR</th><th>UPTO LAST YEAR</th><th>THIS YEAR</th>';
+            annualReportData.forEach((row, index) => {
+                body += `<tr><td>${index + 1}</td><td>${row.name}</td><td>${row.purchasedLastYear}</td><td>${row.purchasedThisYear}</td><td>${row.givenLastYear}</td><td>${row.givenThisYear}</td><td>${row.balance}</td></tr>`;
+            });
+        }
+        
+        content = `<html><head><title>${title}</title><style>body{font-family: Arial, sans-serif;} table{width:100%; border-collapse: collapse;} th, td{border: 1px solid #dddddd; text-align: left; padding: 8px;} tr:nth-child(even) {background-color: #f2f2f2;}</style></head><body><h1>${title}</h1><table><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table></body></html>`;
+        
+        const blob = new Blob(['\ufeff', content], { type: 'application/msword' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${activeReportTab}.doc`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const exportToExcel = () => {
+        if (!window.XLSX) { alert("Excel export library is not loaded yet. Please try again in a moment."); return; }
+        
+        let ws_data = [];
+        let merges = [];
+
+        if (activeReportTab === 'dateReport') {
+            ws_data.push(['SL.NO', 'MATERIAL', 'TOTAL PURCHASED', 'TOTAL GIVEN', 'BALANCE']);
+            reportData.forEach((row, index) => {
+                ws_data.push([index + 1, row.name, row.totalPurchased, row.totalGiven, row.totalBalance]);
+            });
+        } else if (activeReportTab === 'monthlyReport') {
+            ws_data = [
+                ["", "", { t: 's', v: 'TOTAL PURCHASED' }, "", { t: 's', v: 'TOTAL GIVEN' }, ""],
+                ['SL.NO', 'MATERIAL', 'UPTO LAST MONTH', 'THIS MONTH', 'UPTO LAST MONTH', 'THIS MONTH', 'BALANCE']
+            ];
+            monthlyReportData.forEach((row, index) => {
+                ws_data.push([index + 1, row.name, row.purchasedLastMonth, row.purchasedThisMonth, row.givenLastMonth, row.givenThisMonth, row.balance]);
+            });
+            merges = [{ s: { r: 0, c: 2 }, e: { r: 0, c: 3 } }, { s: { r: 0, c: 4 }, e: { r: 0, c: 5 } }];
+        } else if (activeReportTab === 'annualReport') {
+            ws_data = [
+                ["", "", { t: 's', v: 'TOTAL PURCHASED' }, "", { t: 's', v: 'TOTAL GIVEN' }, ""],
+                ['SL.NO', 'MATERIAL', 'UPTO LAST YEAR', 'THIS YEAR', 'UPTO LAST YEAR', 'THIS YEAR', 'BALANCE']
+            ];
+            annualReportData.forEach((row, index) => {
+                ws_data.push([index + 1, row.name, row.purchasedLastYear, row.purchasedThisYear, row.givenLastYear, row.givenThisYear, row.balance]);
+            });
+            merges = [{ s: { r: 0, c: 2 }, e: { r: 0, c: 3 } }, { s: { r: 0, c: 4 }, e: { r: 0, c: 5 } }];
+        }
+
+        const ws = window.XLSX.utils.aoa_to_sheet(ws_data);
+        if (merges.length > 0) ws['!merges'] = merges;
+        const wb = { Sheets: { 'data': ws }, SheetNames: ['data'] };
+        window.XLSX.writeFile(wb, `${activeReportTab}.xlsx`);
+    };
+
+    const ReportTabButton = ({ tabId, children }) => (
+        <button
+            onClick={() => setActiveReportTab(tabId)}
+            className={`px-4 py-2 text-sm font-medium rounded-md ${activeReportTab === tabId ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+        >
+            {children}
+        </button>
+    );
+
+    return (
+        <div className="bg-white p-6 rounded-lg shadow-md h-full flex flex-col">
+            {isExportModalOpen && <ExportModal onClose={() => setIsExportModalOpen(false)} exportToPDF={exportToPDF} exportToDoc={exportToDoc} exportToExcel={exportToExcel} />}
+            <h2 className="text-2xl font-semibold text-gray-700 mb-6">Reports</h2>
+            <div className="flex items-center gap-4 mb-6 border-b pb-4">
+                <ReportTabButton tabId="dateReport">Date Report</ReportTabButton>
+                <ReportTabButton tabId="monthlyReport">Monthly report</ReportTabButton>
+                <ReportTabButton tabId="annualReport">Annual report</ReportTabButton>
+                <div className="flex-grow"></div>
+                <button onClick={() => setIsExportModalOpen(true)} className="self-end px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">Export</button>
+            </div>
+            
+            {activeReportTab === 'dateReport' && (
+                 <div className="flex items-center gap-4 mb-6">
+                    <div className="flex items-center gap-2">
+                        <label className="text-sm font-medium text-gray-700">From date:</label>
+                        <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="p-2 border border-gray-300 rounded-md" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <label className="text-sm font-medium text-gray-700">To date:</label>
+                        <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="p-2 border border-gray-300 rounded-md" />
+                    </div>
+                </div>
+            )}
+            
+            {activeReportTab === 'monthlyReport' && (
+                <div className="flex items-center gap-2 mb-6">
+                    <label className="text-sm font-medium text-gray-700">Select Month:</label>
+                    <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="p-2 border border-gray-300 rounded-md" />
+                </div>
+            )}
+
+            {activeReportTab === 'annualReport' && (
+                <div className="flex items-center gap-2 mb-6">
+                    <label className="text-sm font-medium text-gray-700">Select Year:</label>
+                    <input type="number" placeholder="YYYY" value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className="p-2 border border-gray-300 rounded-md w-24" />
+                </div>
+            )}
+
+            <div className="flex-grow overflow-y-auto">
+                {activeReportTab === 'dateReport' && (
+                    <table className="w-full text-left">
+                        <thead className="bg-gray-100 sticky top-0">
+                            <tr>
+                                <th className="p-3 text-sm font-semibold text-gray-600">SL.NO</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600">MATERIAL</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600">TOTAL PURCHASED</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600">TOTAL GIVEN</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600">BALANCE</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {reportData.length === 0 ? (
+                                <tr><td colSpan="5" className="text-center p-8 text-gray-500">No data to display.</td></tr>
+                            ) : (
+                                reportData.map((row, index) => (
+                                    <tr key={index} className="border-b">
+                                        <td className="p-3">{index + 1}</td>
+                                        <td className="p-3">{row.name}</td>
+                                        <td className="p-3">{row.totalPurchased}</td>
+                                        <td className="p-3">{row.totalGiven}</td>
+                                        <td className="p-3">{row.totalBalance}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                )}
+                {activeReportTab === 'monthlyReport' && (
+                    <table className="w-full text-left">
+                        <thead className="bg-gray-100 sticky top-0">
+                            <tr>
+                                <th className="p-3 text-sm font-semibold text-gray-600" rowSpan="2">SL.NO</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600" rowSpan="2">MATERIAL</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600 text-center" colSpan="2">TOTAL PURCHASED</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600 text-center" colSpan="2">TOTAL GIVEN</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600" rowSpan="2">BALANCE</th>
+                            </tr>
+                            <tr>
+                                <th className="p-3 text-sm font-semibold text-gray-600">UPTO LAST MONTH</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600">THIS MONTH</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600">UPTO LAST MONTH</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600">THIS MONTH</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {monthlyReportData.length === 0 ? (
+                                <tr><td colSpan="7" className="text-center p-8 text-gray-500">No data to display. Select a month and data will generate automatically.</td></tr>
+                            ) : (
+                                monthlyReportData.map((row, index) => (
+                                    <tr key={index} className="border-b">
+                                        <td className="p-3">{index + 1}</td>
+                                        <td className="p-3">{row.name}</td>
+                                        <td className="p-3">{row.purchasedLastMonth}</td>
+                                        <td className="p-3">{row.purchasedThisMonth}</td>
+                                        <td className="p-3">{row.givenLastMonth}</td>
+                                        <td className="p-3">{row.givenThisMonth}</td>
+                                        <td className="p-3">{row.balance}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                )}
+                 {activeReportTab === 'annualReport' && (
+                    <table className="w-full text-left">
+                        <thead className="bg-gray-100 sticky top-0">
+                            <tr>
+                                <th className="p-3 text-sm font-semibold text-gray-600" rowSpan="2">SL.NO</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600" rowSpan="2">MATERIAL</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600 text-center" colSpan="2">TOTAL PURCHASED</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600 text-center" colSpan="2">TOTAL GIVEN</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600" rowSpan="2">BALANCE</th>
+                            </tr>
+                            <tr>
+                                <th className="p-3 text-sm font-semibold text-gray-600">UPTO LAST YEAR</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600">THIS YEAR</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600">UPTO LAST YEAR</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600">THIS YEAR</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {annualReportData.length === 0 ? (
+                                <tr><td colSpan="7" className="text-center p-8 text-gray-500">No data to display. Select a year and data will generate automatically.</td></tr>
+                            ) : (
+                                annualReportData.map((row, index) => (
+                                    <tr key={index} className="border-b">
+                                        <td className="p-3">{index + 1}</td>
+                                        <td className="p-3">{row.name}</td>
+                                        <td className="p-3">{row.purchasedLastYear}</td>
+                                        <td className="p-3">{row.purchasedThisYear}</td>
+                                        <td className="p-3">{row.givenLastYear}</td>
+                                        <td className="p-3">{row.givenThisYear}</td>
+                                        <td className="p-3">{row.balance}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// --- Existing Items Tab (for Caseworker) [NEW] ---
+function ExistingItemsTabForCaseworker() {
+    const [returnableItems, setReturnableItems] = useState([]);
+    const [nonReturnableItems, setNonReturnableItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const unsubscribe = onSnapshot(query(collection(db, "approval_requests")), (approvalSnapshot) => {
+            onSnapshot(query(collection(db, "distribution_requests")), (distributionSnapshot) => {
+                
+                const approvedNonReturnableMap = new Map();
+                const approvedReturnableMap = new Map();
+
+                approvalSnapshot.forEach(doc => {
+                    const request = doc.data();
+                    if (request.status === 'approved' || request.status === 'partially-approved') {
+                        request.items.forEach(item => {
+                            if (item.status === 'approved') {
+                                const quantity = parseInt(item.quantity, 10) || 0;
+                                if (item.type === 'Returnable') {
+                                    const key = `${item.name}-${item.serialNumber}-${item.modelNumber}`;
+                                    const existing = approvedReturnableMap.get(key);
+                                    if (existing) {
+                                        existing.quantity += quantity;
+                                    } else {
+                                        approvedReturnableMap.set(key, { ...item, quantity });
+                                    }
+                                } else {
+                                    const existing = approvedNonReturnableMap.get(item.name);
+                                    if (existing) {
+                                        existing.quantity += quantity;
+                                    } else {
+                                        approvedNonReturnableMap.set(item.name, { ...item, quantity });
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+
+                const distributedQuantities = new Map();
+                distributionSnapshot.forEach(doc => {
+                    doc.data().items.forEach(item => {
+                        if (['pending', 'approved', 'collected'].includes(item.status)) {
+                            const quantity = parseInt(item.requiredQuantity, 10) || 0;
+                            const key = item.type === 'Returnable' ? `${item.name}-${item.serialNumber}-${item.modelNumber}` : item.name;
+                            const currentQty = distributedQuantities.get(key) || 0;
+                            distributedQuantities.set(key, currentQty + quantity);
+                        }
+                    });
+                });
+
+                const finalNonReturnable = [];
+                approvedNonReturnableMap.forEach((item, name) => {
+                    const distributedQty = distributedQuantities.get(name) || 0;
+                    const presentQuantity = item.quantity - distributedQty;
+                    if (presentQuantity > 0) {
+                        finalNonReturnable.push({ ...item, quantity: presentQuantity });
+                    }
+                });
+
+                const finalReturnable = [];
+                approvedReturnableMap.forEach((item, key) => {
+                    const distributedQty = distributedQuantities.get(key) || 0;
+                    const presentQuantity = item.quantity - distributedQty;
+                    if (presentQuantity > 0) {
+                        finalReturnable.push({ ...item, quantity: presentQuantity });
+                    }
+                });
+                
+                setReturnableItems(finalReturnable);
+                setNonReturnableItems(finalNonReturnable);
+                setLoading(false);
+            });
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    if (loading) {
+        return <div className="text-center p-8">Loading stock...</div>;
+    }
+
+    return (
+        <div className="space-y-8">
+            <div className="bg-white p-6 rounded-lg shadow-md">
+                <h3 className="text-xl font-semibold mb-4">Non-Returnable Materials</h3>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-gray-100">
+                            <tr>
+                                <th className="p-3 font-semibold">SL.NO</th>
+                                <th className="p-3 font-semibold">MATERIAL NAME</th>
+                                <th className="p-3 font-semibold">INFO</th>
+                                <th className="p-3 font-semibold">PRESENT QUANTITY</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {nonReturnableItems.length > 0 ? nonReturnableItems.map((item, index) => (
+                                <tr key={item.name} className="border-b">
+                                    <td className="p-3">{index + 1}</td>
+                                    <td className="p-3">{item.name}</td>
+                                    <td className="p-3">{item.info}</td>
+                                    <td className="p-3">{item.quantity}</td>
+                                </tr>
+                            )) : (
+                                <tr>
+                                    <td colSpan="4" className="text-center p-8 text-gray-500">No items in this category.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-md">
+                <h3 className="text-xl font-semibold mb-4">Returnable Material</h3>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-gray-100">
+                            <tr>
+                                <th className="p-3 font-semibold">SL.NO</th>
+                                <th className="p-3 font-semibold">MATERIAL NAME</th>
+                                <th className="p-3 font-semibold">INFO</th>
+                                <th className="p-3 font-semibold">SERIAL NO</th>
+                                <th className="p-3 font-semibold">MODEL NO</th>
+                                <th className="p-3 font-semibold">PRESENT QUANTITY</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {returnableItems.length > 0 ? returnableItems.map((item, index) => (
+                                <tr key={`${item.name}-${item.serialNumber}`} className="border-b">
+                                    <td className="p-3">{index + 1}</td>
+                                    <td className="p-3">{item.name}</td>
+                                    <td className="p-3">{item.info}</td>
+                                    <td className="p-3">{item.serialNumber || 'N/A'}</td>
+                                    <td className="p-3">{item.modelNumber || 'N/A'}</td>
+                                    <td className="p-3">{item.quantity}</td>
+                                </tr>
+                            )) : (
+                                <tr>
+                                    <td colSpan="6" className="text-center p-8 text-gray-500">No items in this category.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 // --- Verification History Tab (for Caseworker) [NEW] ---
@@ -1198,7 +2046,7 @@ function ConsumerHandover() {
 }
 
 
-// --- Data Entry Form Component ---
+// --- Data Entry Form Component [FIXED] ---
 function DataEntryForm({ user }) {
   const [vendorName, setVendorName] = useState('');
   const [vendorPhone, setVendorPhone] = useState('');
@@ -1374,55 +2222,137 @@ function DataEntryForm({ user }) {
   };
 
   const exportToPDF = () => {
-    if (!window.jspdf) { alert("PDF export library is not loaded yet. Please try again in a moment."); return; }
+    if (!window.jspdf || !window.jspdf.jsPDF) { 
+        alert("PDF export library is not loaded yet. Please try again in a moment."); 
+        return; 
+    }
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'portrait' });
+    const doc = new jsPDF({ orientation: 'landscape' });
     const tableColumn = ["SL", "VENDOR", "PHONE", "ADDRESS", "BILL NO", "GST NO", "BILL DATE", "MATERIAL", "TYPE", "INFO", "QTY", "COST", "STATUS"];
     const tableRows = [];
+
     [...historicalRecords, ...pendingRecords].forEach((record, index) => {
         const recordData = [
-            index + 1, record.vendorName || vendorName, record.vendorPhone || vendorPhone,
-            record.vendorAddress || vendorAddress, record.billNumber || billNumber, record.gstNumber || gstNumber,
+            index + 1, 
+            record.vendorName || vendorName, 
+            record.vendorPhone || vendorPhone,
+            record.vendorAddress || vendorAddress, 
+            record.billNumber || billNumber, 
+            record.gstNumber || gstNumber,
             formatDateForExport(record.billDate || billDate),
             `${record.name} ${record.serialNumber ? `(${record.serialNumber}/${record.modelNumber})` : ''}`,
-            record.type, record.info, record.quantity, `₹${record.cost}`, record.status || 'Pending'
+            record.type, 
+            record.info, 
+            record.quantity, 
+            record.cost, 
+            record.status || 'Pending'
         ];
         tableRows.push(recordData);
     });
-    doc.autoTable({
-        head: [tableColumn], body: tableRows, startY: 20, theme: 'grid',
-        styles: { fontSize: 6, cellPadding: 1.5 }, headStyles: { fontSize: 7, fillColor: [34, 139, 34], textColor: 255 },
-        columnStyles: { 3: { cellWidth: 35 }, 7: { cellWidth: 'auto' } }
-    });
+
     doc.text("Material Records", 14, 15);
-    doc.save("material_records_portrait.pdf");
+    doc.autoTable({
+        head: [tableColumn], 
+        body: tableRows, 
+        startY: 20, 
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 1.5 },
+        headStyles: { fontSize: 8, fillColor: [34, 139, 34], textColor: 255 },
+        columnStyles: {
+            3: { cellWidth: 40 }, // Address
+            7: { cellWidth: 35 }  // Material
+        }
+    });
+    doc.save("material_records.pdf");
   };
 
   const exportToExcel = () => {
     if (!window.XLSX) { alert("Excel export library is not loaded yet. Please try again in a moment."); return; }
-    const ws = window.XLSX.utils.json_to_sheet([...historicalRecords, ...pendingRecords].map((record, index) => ({
-        "SL.NO": index + 1, "VENDOR": record.vendorName || vendorName, "VENDOR PHONE": record.vendorPhone || vendorPhone,
-        "VENDOR ADDRESS": record.vendorAddress || vendorAddress, "BILL NUMBER": record.billNumber || billNumber,
-        "GST NUMBER": record.gstNumber || gstNumber, "BILL DATE": formatDateForExport(record.billDate || billDate),
-        "MATERIAL": `${record.name} ${record.serialNumber ? `(${record.serialNumber}/${record.modelNumber})` : ''}`,
-        "TYPE": record.type, "INFO": record.info, "QUANTITY": record.quantity, "COST": `₹${record.cost}`, "STATUS": record.status || 'Pending'
-    })));
+    
+    const header = ["SL.NO", "VENDOR", "VENDOR PHONE", "VENDOR ADDRESS", "BILL NUMBER", "GST NUMBER", "BILL DATE", "MATERIAL", "TYPE", "INFO", "QUANTITY", "COST", "STATUS"];
+    const body = [...historicalRecords, ...pendingRecords].map((record, index) => ([
+        index + 1,
+        record.vendorName || vendorName,
+        record.vendorPhone || vendorPhone,
+        record.vendorAddress || vendorAddress,
+        record.billNumber || billNumber,
+        record.gstNumber || gstNumber,
+        formatDateForExport(record.billDate || billDate),
+        `${record.name} ${record.serialNumber ? `(${record.serialNumber}/${record.modelNumber})` : ''}`,
+        record.type,
+        record.info,
+        parseInt(record.quantity, 10),
+        parseFloat(record.cost),
+        record.status || 'Pending'
+    ]));
+
+    const ws = window.XLSX.utils.aoa_to_sheet([header, ...body]);
+    // Set column widths
+    ws['!cols'] = [
+        { wch: 5 },  // SL.NO
+        { wch: 20 }, // VENDOR
+        { wch: 15 }, // VENDOR PHONE
+        { wch: 30 }, // VENDOR ADDRESS
+        { wch: 15 }, // BILL NUMBER
+        { wch: 15 }, // GST NUMBER
+        { wch: 12 }, // BILL DATE
+        { wch: 30 }, // MATERIAL
+        { wch: 15 }, // TYPE
+        { wch: 15 }, // INFO
+        { wch: 10 }, // QUANTITY
+        { wch: 12 }, // COST
+        { wch: 12 }  // STATUS
+    ];
+
     const wb = { Sheets: { 'data': ws }, SheetNames: ['data'] };
     window.XLSX.writeFile(wb, "material_records.xlsx");
   };
 
   const exportToDoc = () => {
-    let content = '<html><head><style>body{font-family: Arial, sans-serif;} table{width:100%; border-collapse: collapse;} th, td{border: 1px solid #dddddd; text-align: left; padding: 8px;} tr:nth-child(even) {background-color: #f2f2f2;}</style></head><body><h1>Material Records</h1><table><tr><th>SL.NO</th><th>VENDOR</th><th>PHONE</th><th>ADDRESS</th><th>BILL NO</th><th>GST NO</th><th>BILL DATE</th><th>MATERIAL</th><th>TYPE</th><th>INFO</th><th>QUANTITY</th><th>COST</th><th>STATUS</th></tr>';
+    let header = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head><meta charset='utf-8'><title>Material Records</title>
+        <style>
+            @page {
+                size: A4 landscape;
+                margin: 1.25cm;
+            }
+            body { 
+                font-family: Arial, sans-serif; 
+            }
+            .container {
+                text-align: center;
+            }
+            h1 { text-align: center; font-size: 16pt; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { border: 1px solid #dddddd; text-align: center; padding: 8px; font-size: 7pt; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+        </style>
+        </head><body><div class="container">`;
+    let table = '<h1>Material Records</h1><table><thead><tr><th>SL.NO</th><th>VENDOR</th><th>PHONE</th><th>ADDRESS</th><th>BILL NO</th><th>GST NO</th><th>BILL DATE</th><th>MATERIAL</th><th>TYPE</th><th>INFO</th><th>QTY</th><th>COST</th><th>STATUS</th></tr></thead><tbody>';
+    
     [...historicalRecords, ...pendingRecords].forEach((record, index) => {
-        content += `<tr>
-            <td>${index + 1}</td> <td>${record.vendorName || vendorName}</td> <td>${record.vendorPhone || vendorPhone}</td>
-            <td>${record.vendorAddress || vendorAddress}</td> <td>${record.billNumber || billNumber}</td> <td>${record.gstNumber || gstNumber}</td>
-            <td>${formatDateForExport(record.billDate || billDate)}</td> <td>${record.name} ${record.serialNumber ? `(${record.serialNumber}/${record.modelNumber})` : ''}</td>
-            <td>${record.type}</td> <td>${record.info}</td> <td>${record.quantity}</td> <td>₹${record.cost}</td> <td>${record.status || 'Pending'}</td>
+        table += `<tr>
+            <td>${index + 1}</td> 
+            <td>${record.vendorName || vendorName}</td> 
+            <td>${record.vendorPhone || vendorPhone}</td>
+            <td>${record.vendorAddress || vendorAddress}</td> 
+            <td>${record.billNumber || billNumber}</td> 
+            <td>${record.gstNumber || gstNumber}</td>
+            <td>${formatDateForExport(record.billDate || billDate)}</td> 
+            <td>${record.name} ${record.serialNumber ? `(${record.serialNumber}/${record.modelNumber})` : ''}</td>
+            <td>${record.type}</td> 
+            <td>${record.info}</td> 
+            <td>${record.quantity}</td> 
+            <td>${record.cost}</td> 
+            <td>${record.status || 'Pending'}</td>
         </tr>`;
     });
-    content += '</table></body></html>';
-    const blob = new Blob(['\ufeff', content], { type: 'application/msword' });
+
+    let footer = '</tbody></table></div></body></html>';
+    let sourceHTML = header + table + footer;
+
+    const blob = new Blob(['\ufeff', sourceHTML], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -1952,7 +2882,7 @@ function ApproverDashboard({ user, onLogout }) {
                 <h1 className="text-3xl font-bold text-gray-800">Approval Portal</h1>
                 <div className="flex items-center gap-4">
                     <span className="text-gray-600">{user.email}</span>
-                    <button onClick={onLogout} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Logout</button>
+                    <SettingsButton user={user} onLogout={onLogout} />
                 </div>
             </header>
             <nav className="flex-shrink-0 border-b border-gray-200">
@@ -2854,7 +3784,7 @@ function ConsumerDashboard({ user, onLogout }) {
                 <h1 className="text-3xl font-bold text-gray-800">Consumer Portal</h1>
                 <div className="flex items-center gap-4">
                     <span className="text-gray-600">{user.email}</span>
-                    <button onClick={onLogout} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Logout</button>
+                    <SettingsButton user={user} onLogout={onLogout} />
                 </div>
             </header>
             <main className="flex-grow grid grid-cols-2 gap-8 overflow-y-auto">
