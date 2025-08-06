@@ -321,7 +321,7 @@ function SettingsButton({ user, onLogout }) {
 }
 
 
-// --- Master Dashboard Component [FIXED LAYOUT] ---
+// --- Master Dashboard Component [UPDATED] ---
 function MasterDashboard({ user, onLogout }) {
     const [users, setUsers] = useState([]);
     // State for new user form
@@ -333,7 +333,7 @@ function MasterDashboard({ user, onLogout }) {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     
-    // State for editing mode
+    // State for user editing mode
     const [editingUserId, setEditingUserId] = useState(null);
     
     // State for materials
@@ -341,6 +341,7 @@ function MasterDashboard({ user, onLogout }) {
     const [newMaterialName, setNewMaterialName] = useState('');
     const [newMaterialType, setNewMaterialType] = useState('Non-returnable');
     const [newMaterialInfo, setNewMaterialInfo] = useState('Non-Electronic');
+    const [editingMaterialId, setEditingMaterialId] = useState(null); // State for material editing
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
     useEffect(() => {
@@ -365,7 +366,7 @@ function MasterDashboard({ user, onLogout }) {
         };
     }, []);
 
-    const resetForm = () => {
+    const resetUserForm = () => {
         setUniqueId('');
         setName('');
         setDesignation('');
@@ -379,14 +380,13 @@ function MasterDashboard({ user, onLogout }) {
     const handleUserFormSubmit = async (e) => {
         e.preventDefault();
 
-        // If we are editing, update the user
         if (editingUserId) {
             const updatedDetails = { uniqueId, name, designation, role: newUserRole };
             try {
                 const userDocRef = doc(db, 'users', editingUserId);
                 await updateDoc(userDocRef, updatedDetails);
                 alert("User details updated successfully.");
-                resetForm();
+                resetUserForm();
             } catch (error) {
                 console.error("Error updating user details:", error);
                 alert("Failed to update user details.");
@@ -394,7 +394,6 @@ function MasterDashboard({ user, onLogout }) {
             return;
         }
 
-        // Otherwise, create a new user
         if (password !== confirmPassword) {
             alert("Passwords do not match.");
             return;
@@ -413,7 +412,7 @@ function MasterDashboard({ user, onLogout }) {
             });
 
             alert(`User ${newUserEmail} created successfully.`);
-            resetForm();
+            resetUserForm();
 
         } catch (error) {
             console.error("Error creating new user:", error);
@@ -435,7 +434,7 @@ function MasterDashboard({ user, onLogout }) {
         }
     };
     
-    const handleEditClick = (userToEdit) => {
+    const handleEditUserClick = (userToEdit) => {
         setEditingUserId(userToEdit.id);
         setUniqueId(userToEdit.uniqueId || '');
         setName(userToEdit.name || '');
@@ -444,16 +443,45 @@ function MasterDashboard({ user, onLogout }) {
         setNewUserRole(userToEdit.role || 'caseworker');
     };
     
-    const handleAddMaterial = async (e) => {
+    const resetMaterialForm = () => {
+        setNewMaterialName('');
+        setNewMaterialType('Non-returnable');
+        setNewMaterialInfo('Non-Electronic');
+        setEditingMaterialId(null);
+    };
+
+    const handleMaterialFormSubmit = async (e) => {
         e.preventDefault();
         if (!newMaterialName) { alert("Please enter a material name."); return; }
-        try {
-          await addDoc(collection(db, 'materials'), { name: newMaterialName, type: newMaterialType, info: newMaterialInfo });
-          setNewMaterialName('');
-        } catch (error) {
-          console.error("Error adding new material: ", error);
-          alert("Failed to add material.");
+
+        const materialData = { name: newMaterialName, type: newMaterialType, info: newMaterialInfo };
+
+        if (editingMaterialId) {
+            try {
+                const materialDocRef = doc(db, 'materials', editingMaterialId);
+                await updateDoc(materialDocRef, materialData);
+                alert("Material updated successfully.");
+                resetMaterialForm();
+            } catch (error) {
+                console.error("Error updating material: ", error);
+                alert("Failed to update material.");
+            }
+        } else {
+            try {
+                await addDoc(collection(db, 'materials'), materialData);
+                resetMaterialForm();
+            } catch (error) {
+                console.error("Error adding new material: ", error);
+                alert("Failed to add material.");
+            }
         }
+    };
+    
+    const handleEditMaterialClick = (materialToEdit) => {
+        setEditingMaterialId(materialToEdit.id);
+        setNewMaterialName(materialToEdit.name);
+        setNewMaterialType(materialToEdit.type);
+        setNewMaterialInfo(materialToEdit.info);
     };
 
     const handleDeleteMaterial = async (materialId) => {
@@ -527,7 +555,7 @@ function MasterDashboard({ user, onLogout }) {
                         </div>
                         <div className="flex gap-4">
                             {editingUserId && (
-                                <button type="button" onClick={resetForm} className="w-full py-2 px-4 bg-gray-500 text-white font-semibold rounded-md hover:bg-gray-600">Cancel</button>
+                                <button type="button" onClick={resetUserForm} className="w-full py-2 px-4 bg-gray-500 text-white font-semibold rounded-md hover:bg-gray-600">Cancel</button>
                             )}
                             <button type="submit" className="w-full py-2 px-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700">
                                 {editingUserId ? 'Update User' : 'Create User'}
@@ -556,7 +584,7 @@ function MasterDashboard({ user, onLogout }) {
                                        <td className="p-3 text-sm">{u.email || 'N/A'}</td>
                                        <td className="p-3 capitalize text-sm">{u.role || 'N/A'}</td>
                                        <td className="p-3 flex gap-2">
-                                           <button onClick={() => handleEditClick(u)} className="text-sm px-2 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200">Edit</button>
+                                           <button onClick={() => handleEditUserClick(u)} className="text-sm px-2 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200">Edit</button>
                                            <button onClick={() => handleDeleteUser(u.id)} className="text-sm px-2 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200">Delete</button>
                                        </td>
                                    </tr>
@@ -567,31 +595,38 @@ function MasterDashboard({ user, onLogout }) {
                     </div>
                 </div>
                 <div className="bg-white p-6 rounded-lg shadow-md flex flex-col">
-                    {/* Add Material Form */}
+                    {/* Add/Edit Material Form */}
                     <div className="flex-shrink-0">
-                        <h2 className="text-2xl font-semibold mb-4">Add Material</h2>
-                        <form onSubmit={handleAddMaterial} className="space-y-4 p-4 border rounded-md">
-                        <div className="flex items-end gap-4">
-                            <div className="flex-grow">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">New Material Name</label>
-                                <input type="text" value={newMaterialName} onChange={(e) => setNewMaterialName(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" required />
-                            </div>
-                            <div className="flex-grow">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Material Type</label>
-                                <select value={newMaterialType} onChange={(e) => setNewMaterialType(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md">
-                                <option>Non-returnable</option>
-                                <option>Returnable</option>
-                                </select>
-                            </div>
-                            <div className="flex-grow">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Material Information</label>
-                                <select value={newMaterialInfo} onChange={(e) => setNewMaterialInfo(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md">
-                                <option>Non-Electronic</option>
-                                <option>Electronic</option>
-                                </select>
-                            </div>
-                            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shrink-0">Add Material</button>
-                        </div>
+                        <h2 className="text-2xl font-semibold mb-4">{editingMaterialId ? 'Edit Material' : 'Add Material'}</h2>
+                        <form onSubmit={handleMaterialFormSubmit} className="space-y-4 p-4 border rounded-md">
+                            <div className="flex flex-wrap items-end gap-4">
+    <div className="flex-grow min-w-[150px]">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Material Name</label>
+        <input type="text" value={newMaterialName} onChange={(e) => setNewMaterialName(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" required />
+    </div>
+    <div className="flex-grow min-w-[150px]">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Material Type</label>
+        <select value={newMaterialType} onChange={(e) => setNewMaterialType(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md">
+            <option>Non-returnable</option>
+            <option>Returnable</option>
+        </select>
+    </div>
+    <div className="flex-grow min-w-[150px]">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Material Information</label>
+        <select value={newMaterialInfo} onChange={(e) => setNewMaterialInfo(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md">
+            <option>Non-Electronic</option>
+            <option>Electronic</option>
+        </select>
+    </div>
+    <div className="flex gap-2">
+        {editingMaterialId && (
+            <button type="button" onClick={resetMaterialForm} className="px-4 py-2 bg-gray-500 text-white font-semibold rounded-md hover:bg-gray-600">Cancel</button>
+        )}
+        <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shrink-0">
+            {editingMaterialId ? 'Update' : 'Add'}
+        </button>
+    </div>
+</div>
                         </form>
                     </div>
                     <hr className="my-6 flex-shrink-0"/>
@@ -616,14 +651,17 @@ function MasterDashboard({ user, onLogout }) {
                                                 <tr key={material.id} className="border-b last:border-b-0">
                                                     <td className="p-2">{index + 1}.</td>
                                                     <td className="p-2">{material.name}</td>
-                                                    <td className="p-2">
+                                                    <td className="p-2 flex gap-2">
                                                         {confirmDeleteId === material.id ? (
-                                                            <div className="flex items-center gap-2">
-                                                                <button onClick={() => handleDeleteMaterial(material.id)} className="text-xs px-2 py-1 bg-red-500 text-white rounded-md hover:bg-red-600">Yes</button>
-                                                                <button onClick={() => setConfirmDeleteId(null)} className="text-xs px-2 py-1 bg-gray-300 rounded-md hover:bg-gray-400">No</button>
-                                                            </div>
+                                                            <>
+                                                                <button onClick={() => handleDeleteMaterial(material.id)} className="text-xs px-2 py-1 bg-red-500 text-white rounded-md hover:bg-red-600">Confirm</button>
+                                                                <button onClick={() => setConfirmDeleteId(null)} className="text-xs px-2 py-1 bg-gray-300 rounded-md hover:bg-gray-400">Cancel</button>
+                                                            </>
                                                         ) : (
-                                                            <button onClick={() => setConfirmDeleteId(material.id)} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200">Delete</button>
+                                                            <>
+                                                                <button onClick={() => handleEditMaterialClick(material)} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200">Edit</button>
+                                                                <button onClick={() => setConfirmDeleteId(material.id)} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200">Delete</button>
+                                                            </>
                                                         )}
                                                     </td>
                                                 </tr>
@@ -650,14 +688,17 @@ function MasterDashboard({ user, onLogout }) {
                                                 <tr key={material.id} className="border-b last:border-b-0">
                                                     <td className="p-2">{index + 1}.</td>
                                                     <td className="p-2">{material.name}</td>
-                                                    <td className="p-2">
+                                                    <td className="p-2 flex gap-2">
                                                         {confirmDeleteId === material.id ? (
-                                                            <div className="flex items-center gap-2">
-                                                                <button onClick={() => handleDeleteMaterial(material.id)} className="text-xs px-2 py-1 bg-red-500 text-white rounded-md hover:bg-red-600">Yes</button>
-                                                                <button onClick={() => setConfirmDeleteId(null)} className="text-xs px-2 py-1 bg-gray-300 rounded-md hover:bg-gray-400">No</button>
-                                                            </div>
+                                                            <>
+                                                                <button onClick={() => handleDeleteMaterial(material.id)} className="text-xs px-2 py-1 bg-red-500 text-white rounded-md hover:bg-red-600">Confirm</button>
+                                                                <button onClick={() => setConfirmDeleteId(null)} className="text-xs px-2 py-1 bg-gray-300 rounded-md hover:bg-gray-400">Cancel</button>
+                                                            </>
                                                         ) : (
-                                                            <button onClick={() => setConfirmDeleteId(material.id)} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200">Delete</button>
+                                                            <>
+                                                                <button onClick={() => handleEditMaterialClick(material)} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200">Edit</button>
+                                                                <button onClick={() => setConfirmDeleteId(material.id)} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200">Delete</button>
+                                                            </>
                                                         )}
                                                     </td>
                                                 </tr>
