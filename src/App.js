@@ -133,10 +133,30 @@ export default function App() {
   return <div className="h-screen bg-gray-50">{renderDashboard()}</div>;
 }
 
-// --- Login Component ---
+// --- Password Visibility Toggle Icon ---
+const EyeIcon = ({ visible, onClick }) => (
+    <button type="button" onClick={onClick} className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5">
+        {visible ? (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.022 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+            </svg>
+        ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0110 19c-4.478 0-8.268-2.943-9.542-7 .946-3.118 3.544-5.473 6.836-6.234M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.066 6.934A10.009 10.009 0 0110 3c4.478 0 8.268 2.943 9.542 7a9.982 9.982 0 01-1.42 2.994M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 2l20 20" />
+            </svg>
+        )}
+    </button>
+);
+
+
+// --- Login Component [UPDATED] ---
 function Login({ onLogin, error }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -152,9 +172,10 @@ function Login({ onLogin, error }) {
                         <label htmlFor="email" className="text-sm font-medium text-gray-700">Email address</label>
                         <input id="email" name="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="you@example.com" />
                     </div>
-                    <div>
+                    <div className="relative"> {/* Added relative positioning here */}
                         <label htmlFor="password" className="text-sm font-medium text-gray-700">Password</label>
-                        <input id="password" name="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="••••••••" />
+                        <input id="password" name="password" type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 pr-12" placeholder="••••••••" />
+                        <EyeIcon visible={showPassword} onClick={() => setShowPassword(!showPassword)} />
                     </div>
                     {error && <p className="text-sm text-red-600 text-center">{error}</p>}
                     <div>
@@ -320,6 +341,49 @@ function SettingsButton({ user, onLogout }) {
     );
 }
 
+// --- Add Designation Modal [NEW] ---
+function AddDesignationModal({ onClose, onAddDesignation }) {
+    const [newDesignationName, setNewDesignationName] = useState('');
+    const [error, setError] = useState('');
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        if (!newDesignationName.trim()) {
+            setError("Please enter a designation name.");
+            return;
+        }
+        await onAddDesignation(newDesignationName.trim());
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+                <h2 className="text-2xl font-bold mb-6 text-center">Add New Designation</h2>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label htmlFor="designationName" className="block text-sm font-medium text-gray-700 mb-1">Designation Name</label>
+                        <input
+                            type="text"
+                            id="designationName"
+                            value={newDesignationName}
+                            onChange={(e) => setNewDesignationName(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            required
+                        />
+                    </div>
+                    {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+                    <div className="flex justify-end gap-4 pt-4">
+                        <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400">Cancel</button>
+                        <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Add Designation</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
 
 // --- Master Dashboard Component [UPDATED] ---
 function MasterDashboard({ user, onLogout }) {
@@ -329,10 +393,18 @@ function MasterDashboard({ user, onLogout }) {
     const [name, setName] = useState('');
     const [designation, setDesignation] = useState('');
     const [newUserEmail, setNewUserEmail] = useState('');
-    const [newUserRole, setNewUserRole] = useState('caseworker');
+    const [newUserRole, setNewUserRole] = useState('consumer'); // Default to consumer
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     
+    // State for password visibility
+    const [showSetPassword, setShowSetPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    
+    // State for designations
+    const [designations, setDesignations] = useState([]);
+    const [isAddDesignationModalOpen, setIsAddDesignationModalOpen] = useState(false); // NEW state for modal
+
     // State for user editing mode
     const [editingUserId, setEditingUserId] = useState(null);
     
@@ -359,12 +431,37 @@ function MasterDashboard({ user, onLogout }) {
             setMaterials(materialsList);
         });
 
+        // Subscribe to designation changes
+        const designationsUnsubscribe = onSnapshot(collection(db, 'designations'), (snapshot) => {
+            const designationsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // Add default designations if they don't exist in the fetched list
+            const defaultDesignations = ["First Division Assistant", "Second Division Assistant", "Shiristhedar (RHA)"];
+            const allDesignations = [...defaultDesignations, ...designationsList.map(d => d.name)];
+            const uniqueDesignations = [...new Set(allDesignations)]; // Ensure uniqueness
+            setDesignations(uniqueDesignations.map(name => ({name})));
+        });
+
         // Cleanup subscriptions on component unmount
         return () => {
             usersUnsubscribe();
             materialsUnsubscribe();
+            designationsUnsubscribe();
         };
     }, []);
+
+    const handleAddDesignation = async (designationName) => { // Modified to accept designationName
+        if (!designationName) {
+            alert("Please enter a designation name.");
+            return;
+        }
+        try {
+            await addDoc(collection(db, 'designations'), { name: designationName });
+            alert("Designation added successfully.");
+        } catch (error) {
+            console.error("Error adding designation: ", error);
+            alert("Failed to add designation.");
+        }
+    };
 
     const resetUserForm = () => {
         setUniqueId('');
@@ -373,7 +470,7 @@ function MasterDashboard({ user, onLogout }) {
         setNewUserEmail('');
         setPassword('');
         setConfirmPassword('');
-        setNewUserRole('caseworker');
+        setNewUserRole('consumer'); // Default to consumer
         setEditingUserId(null);
     };
 
@@ -423,6 +520,8 @@ function MasterDashboard({ user, onLogout }) {
     };
 
     const handleDeleteUser = async (userId) => {
+        // Replaced window.confirm with a custom modal for consistency if needed,
+        // but keeping it for now as per previous implementation.
         if (window.confirm("Are you sure you want to delete this user? This will remove their access permanently.")) {
             try {
                 await deleteDoc(doc(db, 'users', userId));
@@ -440,7 +539,7 @@ function MasterDashboard({ user, onLogout }) {
         setName(userToEdit.name || '');
         setDesignation(userToEdit.designation || '');
         setNewUserEmail(userToEdit.email || '');
-        setNewUserRole(userToEdit.role || 'caseworker');
+        setNewUserRole(userToEdit.role || 'consumer');
     };
     
     const resetMaterialForm = () => {
@@ -523,24 +622,37 @@ function MasterDashboard({ user, onLogout }) {
                         <div className="flex items-center">
                             <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Designation</label>
                             <span className="mx-2">:</span>
-                            <input type="text" value={designation} onChange={(e) => setDesignation(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md" required />
+                            <select value={designation} onChange={(e) => {
+                                if (e.target.value === "add-new") {
+                                    setIsAddDesignationModalOpen(true);
+                                    setDesignation(''); // Reset selection
+                                } else {
+                                    setDesignation(e.target.value);
+                                }
+                            }} className="flex-grow p-2 border border-gray-300 rounded-md" required>
+                                <option value="">Select Designation</option>
+                                {designations.map((d, index) => <option key={index} value={d.name}>{d.name}</option>)}
+                                <option value="add-new">Add New Designation...</option> {/* New option */}
+                            </select>
                         </div>
-                        <div className="flex items-center">
+                         <div className="flex items-center">
                             <label className="w-28 text-sm font-medium text-gray-600 shrink-0">User Email</label>
                             <span className="mx-2">:</span>
                             <input type="email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md" readOnly={!!editingUserId} required />
                         </div>
                         {!editingUserId && (
                             <>
-                                <div className="flex items-center">
+                                <div className="relative flex items-center"> {/* Added relative positioning here */}
                                     <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Set Password</label>
                                     <span className="mx-2">:</span>
-                                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md" required />
+                                    <input type={showSetPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md pr-10" required /> {/* Added pr-10 */}
+                                    <EyeIcon visible={showSetPassword} onClick={() => setShowSetPassword(!showSetPassword)} />
                                 </div>
-                                <div className="flex items-center">
+                                <div className="relative flex items-center"> {/* Added relative positioning here */}
                                     <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Confirm Password</label>
                                     <span className="mx-2">:</span>
-                                    <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md" required />
+                                    <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md pr-10" required /> {/* Added pr-10 */}
+                                    <EyeIcon visible={showConfirmPassword} onClick={() => setShowConfirmPassword(!showConfirmPassword)} />
                                 </div>
                             </>
                         )}
@@ -548,9 +660,9 @@ function MasterDashboard({ user, onLogout }) {
                             <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Assign Role</label>
                             <span className="mx-2">:</span>
                             <select value={newUserRole} onChange={(e) => setNewUserRole(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md">
+                                <option value="consumer">Consumer</option>
                                 <option value="caseworker">Caseworker</option>
                                 <option value="approver">Approver</option>
-                                <option value="consumer">Consumer</option>
                             </select>
                         </div>
                         <div className="flex gap-4">
@@ -712,6 +824,12 @@ function MasterDashboard({ user, onLogout }) {
                     </div>
                 </div>
             </main>
+            {isAddDesignationModalOpen && (
+                <AddDesignationModal
+                    onClose={() => setIsAddDesignationModalOpen(false)}
+                    onAddDesignation={handleAddDesignation}
+                />
+            )}
         </div>
     );
 }
@@ -3417,7 +3535,7 @@ function ConsumerRequestTab() {
         return `${day}/${month}/${year}`;
     };
 
-    return (
+   return (
         <div className="space-y-6">
             {requests.length === 0 ? (
                 <p className="text-gray-500 text-center mt-8">No pending requests from Consumers.</p>
