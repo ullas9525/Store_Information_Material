@@ -172,8 +172,8 @@ function Login({ onLogin, error }) {
                         <label htmlFor="email" className="text-sm font-medium text-gray-700">Email address</label>
                         <input id="email" name="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="you@example.com" />
                     </div>
-                    <div className="relative"> {/* Added relative positioning here */}
-                        <label htmlFor="password" className="text-sm font-medium text-gray-700">Password</label>
+                    <div className="relative flex items-center h-12"> {/* Center eye icon vertically */}
+                        <label htmlFor="password" className="text-sm font-medium text-gray-700 absolute left-0 top-0 mt-[-1.5rem]">Password</label>
                         <input id="password" name="password" type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 pr-12" placeholder="••••••••" />
                         <EyeIcon visible={showPassword} onClick={() => setShowPassword(!showPassword)} />
                     </div>
@@ -1519,7 +1519,7 @@ function ExistingItemsTabForCaseworker() {
                                     <td className="p-3">{index + 1}</td>
                                     <td className="p-3">{item.name}</td>
                                     <td className="p-3">{item.info}</td>
-                                    <td className="p-3">{item.quantity}</td>
+                                    <td className="p-3">{item.quantity} {item.unit ? item.unit : ''}</td>
                                 </tr>
                             )) : (
                                 <tr>
@@ -1553,7 +1553,7 @@ function ExistingItemsTabForCaseworker() {
                                     <td className="p-3">{item.info}</td>
                                     <td className="p-3">{item.serialNumber || 'N/A'}</td>
                                     <td className="p-3">{item.modelNumber || 'N/A'}</td>
-                                    <td className="p-3">{item.quantity}</td>
+                                    <td className="p-3">{item.quantity} {item.unit ? item.unit : ''}</td>
                                 </tr>
                             )) : (
                                 <tr>
@@ -1756,7 +1756,7 @@ function AnnualVerificationReport({ user }) {
                                     <td className="p-3">{item.name}</td>
                                     <td className="p-3">{item.modelNumber}</td>
                                     <td className="p-3">{item.serialNumber}</td>
-                                    <td className="p-3">{item.requiredQuantity}</td>
+                                    <td className="p-3">{item.requiredQuantity} {item.unit ? item.unit : ''}</td>
                                     <td className="p-3">{consumer.name}</td>
                                     <td className="p-3">{consumer.designation}</td>
                                     <td className="p-3">{formatDate(item.dateTaken)}</td>
@@ -1848,7 +1848,7 @@ function RejectedCases() {
                                 <td className="p-3">{item.billNumber}</td>
                                 <td className="p-3">{formatDate(item.billDate)}</td>
                                 <td className="p-3">{item.name}</td>
-                                <td className="p-3">{item.quantity}</td>
+                                <td className="p-3">{item.quantity} {item.unit ? item.unit : ''}</td>
                                 <td className="p-3">₹{item.cost}</td>
                                 <td className="p-3">{item.remarks}</td>
                             </tr>
@@ -1950,7 +1950,7 @@ function ConsumerItemsReport() {
                                     <td className="p-3">{item.name}</td>
                                     <td className="p-3">{materialInfo.type || 'N/A'}</td>
                                     <td className="p-3">{materialInfo.info || 'N/A'}</td>
-                                    <td className="p-3">{item.requiredQuantity}</td>
+                                    <td className="p-3">{item.requiredQuantity} {item.unit ? item.unit : ''}</td>
                                     <td className="p-3">{item.messengerName || 'N/A'}</td>
                                 </tr>
                             );
@@ -2125,7 +2125,7 @@ function ConsumerHandover() {
                                         <td className="p-3">{consumerInfo.name || 'N/A'}</td>
                                         <td className="p-3">{consumerInfo.designation || 'N/A'}</td>
                                         <td className="p-3">{item.name}</td>
-                                        <td className="p-3">{item.requiredQuantity}</td>
+                                        <td className="p-3">{item.requiredQuantity} {item.unit ? item.unit : ''}</td>
                                         <td className="p-3">
                                             <input type="text" placeholder="Enter Name" className="w-full p-2 border border-gray-300 rounded-md" value={messengerNames[item.uniqueId] || ''} onChange={(e) => handleMessengerNameChange(item.uniqueId, e.target.value)} />
                                         </td>
@@ -2172,7 +2172,7 @@ function ConsumerHandover() {
                                         <td className="p-3">{consumerInfo.name || 'N/A'}</td>
                                         <td className="p-3">{consumerInfo.designation || 'N/A'}</td>
                                         <td className="p-3">{item.name}</td>
-                                        <td className="p-3">{item.requiredQuantity}</td>
+                                        <td className="p-3">{item.requiredQuantity} {item.unit ? item.unit : ''}</td>
                                         <td className="p-3">
                                             <select className="w-full p-2 border border-gray-300 rounded-md" value={selectedValue} onChange={(e) => handleSerialChange(item.uniqueId, e.target.value)}>
                                                 <option value="">Select Serial No</option>
@@ -2225,7 +2225,16 @@ function DataEntryForm({ user }) {
   const [gstAmount, setGstAmount] = useState('');
   const [totalAmount, setTotalAmount] = useState('0.00');
   const [editingRecordId, setEditingRecordId] = useState(null);
-  
+  // --- Unit state and options (fix scope) ---
+  const [unit, setUnit] = useState('piece');
+  const unitOptions = [
+    'piece', 'packet', 'rim', 'set', 'box', 'dozen', 'roll', 'bundle', 'bottle', 'bag', 'ream', 'carton', 'tube', 'pad', 'can', 'sheet', 'meter', 'litre', 'kg', 'pair', 'strip', 'sachet', 'jar', 'barrel', 'drum', 'container', 'envelope', 'folder', 'file', 'cup', 'tray', 'kit', 'bunch', 'bundle', 'pad', 'book', 'case', 'unit', 'Add',
+  ];
+  const [customUnit, setCustomUnit] = useState('');
+  // Add GST mode state
+  const [gstMode, setGstMode] = useState('total'); // 'total' or 'individual'
+  const [itemGST, setItemGST] = useState(''); // for Add Item form
+
   const currentMaterialDetails = materials.find(m => m.name === selectedMaterial);
   const isAddItemDisabled = !selectedMaterial || !numMaterials || !costPerMaterial;
 
@@ -2305,7 +2314,9 @@ function DataEntryForm({ user }) {
       type: currentMaterialDetails.type,
       info: currentMaterialDetails.info,
       quantity: numMaterials,
+      unit: unit === 'Add' ? customUnit : unit, // <-- add this line
       cost: totalCost.toFixed(2),
+      ...(gstMode === 'individual' && { gst: itemGST }),
     };
 
     if (editingRecordId) {
@@ -2321,6 +2332,8 @@ function DataEntryForm({ user }) {
     setNumMaterials('');
     setCostPerMaterial('');
     setEditingRecordId(null);
+    setCustomUnit('');
+    setItemGST('');
   }
   
   const handleEdit = (record) => {
@@ -2329,6 +2342,7 @@ function DataEntryForm({ user }) {
     setSelectedMaterial(record.name);
     setNumMaterials(record.quantity);
     setCostPerMaterial(parseFloat(record.cost) / parseFloat(record.quantity));
+    setCustomUnit(record.unit && !unitOptions.includes(record.unit) ? record.unit : '');
   };
 
   const handleDelete = (recordId) => {
@@ -2346,10 +2360,12 @@ function DataEntryForm({ user }) {
         return;
     }
     try {
+      const totalGST = gstMode === 'individual' ? pendingRecords.reduce((sum, rec) => sum + (parseFloat(rec.gst) || 0), 0) : parseFloat(gstAmount) || 0;
+      const totalAmountToSave = pendingRecords.reduce((acc, record) => acc + parseFloat(record.cost || 0), 0) + totalGST;
       await addDoc(collection(db, 'approval_requests'), {
         vendorName, vendorPhone, vendorAddress, billDate, billNumber, gstNumber,
         caseworkerId: user.uid, caseworkerEmail: user.email,
-        items: pendingRecords, gstAmount: gstAmount, totalAmount: totalAmount,
+        items: pendingRecords, gstAmount: totalGST.toFixed(2), totalAmount: totalAmountToSave.toFixed(2),
         status: 'pending', submittedAt: serverTimestamp(),
       });
       alert("Request submitted for approval successfully!");
@@ -2502,7 +2518,7 @@ function DataEntryForm({ user }) {
             <td>${record.name} ${record.serialNumber ? `(${record.serialNumber}/${record.modelNumber})` : ''}</td>
             <td>${record.type}</td> 
             <td>${record.info}</td> 
-            <td>${record.quantity}</td> 
+            <td>${record.quantity} ${record.unit ? record.unit : ''}</td> 
             <td>${record.cost}</td> 
             <td>${record.status || 'Pending'}</td>
         </tr>`;
@@ -2567,6 +2583,16 @@ function DataEntryForm({ user }) {
                 <input type="text" placeholder="Enter GST Number" className="w-full p-2 border border-gray-300 rounded-md" value={gstNumber} onChange={e => setGstNumber(e.target.value)} required />
               </div>
             </div>
+            <div className="flex items-center gap-6 mt-2 mb-2">
+              <label className="flex items-center gap-2">
+                <input type="radio" name="gstMode" value="total" checked={gstMode === 'total'} onChange={() => setGstMode('total')} />
+                Total GST
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="radio" name="gstMode" value="individual" checked={gstMode === 'individual'} onChange={() => setGstMode('individual')} />
+                Individual GST per Item
+              </label>
+            </div>
           </div>
           <div className="p-4 border border-gray-200 rounded-md space-y-4">
             <h3 className="font-semibold text-gray-700">Add Item</h3>
@@ -2577,9 +2603,26 @@ function DataEntryForm({ user }) {
                 {materials.map(mat => <option key={mat.id} value={mat.name}>{mat.name}</option>)}
               </select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-                <input type="text" pattern="\d*" placeholder="Number of Materials" className="w-full p-2 border border-gray-300 rounded-md" value={numMaterials} onChange={e => setNumMaterials(e.target.value.replace(/\D/g, ''))} />
-                <input type="text" placeholder="Cost Per Material" className="w-full p-2 border border-gray-300 rounded-md" value={costPerMaterial} onChange={e => { const val = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'); setCostPerMaterial(val); }} />
+            <div className="grid grid-cols-3 gap-4"> {/* Changed from 2 to 3 columns */}
+              <input type="text" pattern="\\d*" placeholder="Number of Materials" className="w-full p-2 border border-gray-300 rounded-md" value={numMaterials} onChange={e => setNumMaterials(e.target.value.replace(/\D/g, ''))} />
+              <select className="w-full p-2 border border-gray-300 rounded-md" value={unit} onChange={e => setUnit(e.target.value)}>
+                {unitOptions.map(opt => <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>)}
+              </select>
+              {unit === 'Add' && (
+                <input
+                  type="text"
+                  className="w-full p-2 border border-gray-300 rounded-md mt-2"
+                  placeholder="Enter custom unit"
+                  value={customUnit}
+                  onChange={e => setCustomUnit(e.target.value)}
+                  onBlur={() => { if (customUnit) setUnit(customUnit); }}
+                  required
+                />
+              )}
+              <input type="text" placeholder="Cost Per Material" className="w-full p-2 border border-gray-300 rounded-md" value={costPerMaterial} onChange={e => { const val = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'); setCostPerMaterial(val); }} />
+              {gstMode === 'individual' && (
+                <input type="text" placeholder="GST per Item" className="w-full p-2 border border-gray-300 rounded-md col-span-1" value={itemGST} onChange={e => setItemGST(e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'))} />
+              )}
             </div>
             <div>
                 <button type="button" onClick={handleAddItem} disabled={isAddItemDisabled} className={`w-full py-2 px-4 text-white font-semibold rounded-md transition-colors ${ isAddItemDisabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
@@ -2588,10 +2631,12 @@ function DataEntryForm({ user }) {
             </div>
           </div>
           <hr className="my-4"/>
-          <div className="grid grid-cols-2 gap-4">
+          {gstMode === 'total' && (
+            <div className="grid grid-cols-2 gap-4">
               <input type="text" placeholder="GST Amount" value={gstAmount} onChange={e => { const val = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'); setGstAmount(val); }} className="w-full p-2 border border-gray-300 rounded-md" />
               <input type="text" readOnly value={`₹${totalAmount}`} className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" placeholder="Total Amount" />
-          </div>
+            </div>
+          )}
           <div>
             <button type="submit" className="w-full py-3 px-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 disabled:bg-gray-400" disabled={pendingRecords.length === 0 || !gstAmount}>Submit for Approval</button>
           </div>
@@ -2627,7 +2672,7 @@ function DataEntryForm({ user }) {
                       <td className="p-3">{record.name}{record.serialNumber && <span className="block text-xs text-gray-500">({record.serialNumber} / {record.modelNumber})</span>}</td>
                       <td className="p-3">{record.type}</td>
                       <td className="p-3">{record.info}</td>
-                      <td className="p-3">{record.quantity}</td>
+                      <td className="p-3">{record.quantity} {record.unit ? record.unit : ''}</td>
                       <td className="p-3">₹{record.cost}</td>
                       <td className="p-3 capitalize">{record.status}</td>
                       <td className="p-3"></td>
@@ -2639,7 +2684,7 @@ function DataEntryForm({ user }) {
                        <td className="p-3">{record.name}{record.serialNumber && <span className="block text-xs text-gray-500">({record.serialNumber} / {record.modelNumber})</span>}</td>
                       <td className="p-3">{record.type}</td>
                       <td className="p-3">{record.info}</td>
-                      <td className="p-3">{record.quantity}</td>
+                      <td className="p-3">{record.quantity} {record.unit ? record.unit : ''}</td>
                       <td className="p-3">₹{record.cost}</td>
                       <td className="p-3 capitalize">Pending</td>
                       <td className="p-3"><div className="flex gap-2"><button type="button" onClick={() => handleEdit(record)} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200">Edit</button><button type="button" onClick={() => handleDelete(record.id)} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200">Delete</button></div></td>
@@ -2658,7 +2703,7 @@ function DataEntryForm({ user }) {
 
 // --- Bulk Add Modal Component [NEW] ---
 function BulkAddModal({ data, onClose, onConfirm }) {
-    const { name, quantity, costPerItem, type, info } = data;
+    const { name, quantity, costPerItem, type, info, unit } = data;
     const [items, setItems] = useState(() => 
         Array.from({ length: quantity }, () => ({ serialNumber: '', modelNumber: '', productCondition: '' }))
     );
@@ -2683,6 +2728,7 @@ function BulkAddModal({ data, onClose, onConfirm }) {
             type,
             info,
             quantity: 1,
+            unit, // <-- add this line
             cost: costPerItem,
             serialNumber: item.serialNumber,
             modelNumber: item.modelNumber,
@@ -2958,7 +3004,7 @@ function ExistingItemsTab() {
                                     <td className="p-3">{index + 1}</td>
                                     <td className="p-3">{item.name}</td>
                                     <td className="p-3">{item.info}</td>
-                                    <td className="p-3">{item.quantity}</td>
+                                    <td className="p-3">{item.quantity} {item.unit ? item.unit : ''}</td>
                                 </tr>
                             )) : (
                                 <tr>
@@ -2992,7 +3038,7 @@ function ExistingItemsTab() {
                                     <td className="p-3">{item.info}</td>
                                     <td className="p-3">{item.serialNumber || 'N/A'}</td>
                                     <td className="p-3">{item.modelNumber || 'N/A'}</td>
-                                    <td className="p-3">{item.quantity}</td>
+                                    <td className="p-3">{item.quantity} {item.unit ? item.unit : ''}</td>
                                 </tr>
                             )) : (
                                 <tr>
@@ -3408,7 +3454,7 @@ function CaseWorkerRequestTab() {
                                             <td className="p-3">{index + 1}</td>
                                             <td className="p-3">{item.name}</td>
                                             <td className="p-3">{item.type}</td>
-                                            <td className="p-3">{item.quantity}</td>
+                                            <td className="p-3">{item.quantity} {item.unit ? item.unit : ''}</td>
                                             <td className="p-3">₹{item.cost}</td>
                                             <td className="p-3">
                                                 <div className="flex gap-2">
@@ -3577,7 +3623,7 @@ function ConsumerRequestTab() {
                                                 <td className="p-3">{index + 1}</td>
                                                 <td className="p-3">{item.name}</td>
                                                 <td className="p-3">{item.type || 'N/A'}</td>
-                                                <td className="p-3">{item.requiredQuantity}</td>
+                                                <td className="p-3">{item.requiredQuantity} {item.unit ? item.unit : ''}</td>
                                                 <td className="p-3">
                                                     <div className="flex gap-2">
                                                         <button onClick={() => handleStatusChange(request.id, item.name, 'approved')} className={`p-1 w-7 h-7 flex items-center justify-center rounded-full ${itemState.status === 'approved' ? 'bg-green-500 text-white' : 'bg-gray-200'}`}>✓</button>
@@ -3928,7 +3974,7 @@ function ConsumerDashboard({ user, onLogout }) {
                 {isReturnable && <td className="p-3">{item.modelNumber || 'N/A'}</td>}
                 {isReturnable && <td className="p-3">{formatBillDate(item.dateOfPurchase)}</td>}
                 <td className="p-3">{formatDate(item.dateTaken)}</td>
-                <td className="p-3">{item.requiredQuantity}</td>
+                <td className="p-3">{item.requiredQuantity || item.quantity} {item.unit ? item.unit : ''}</td>
                 <td className="p-3">{statusText}</td>
                 <td className="p-3">{remarksText}</td>
                 {isReturnable && <td className="p-3">---</td>}
@@ -3991,7 +4037,7 @@ function ConsumerDashboard({ user, onLogout }) {
                                         <tr key={req.id || index} className="border-b">
                                             <td className="p-3">{index + 1}</td>
                                             <td className="p-3">{req.name}</td>
-                                            <td className="p-3">{req.requiredQuantity}</td>
+                                            <td className="p-3">{req.requiredQuantity} {req.unit ? req.unit : ''}</td>
                                             <td className="p-3 capitalize">{isSubmitted ? 'Pending Approval' : req.status}</td>
                                             <td className="p-3">
                                                 {!isSubmitted && (
