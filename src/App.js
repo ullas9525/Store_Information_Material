@@ -3897,7 +3897,7 @@ function ConsumerDashboard({ user, onLogout }) {
             status: 'Pending',
             type: availableItem.type,
             info: availableItem.info,
-            unit: availableItem.consumerUnit, // Use consumer unit
+            unit: availableItem.consumerUnit || availableItem.unit, // <-- FIX: Prioritize consumerUnit
             serialNumber: availableItem.serialNumber || '',
             modelNumber: availableItem.modelNumber || ''
         };
