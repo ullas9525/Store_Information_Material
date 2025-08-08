@@ -2232,6 +2232,7 @@ function DataEntryForm({ user }) {
   const [customUnit, setCustomUnit] = useState('');
   const [gstMode, setGstMode] = useState('total');
   const [itemGST, setItemGST] = useState('');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const currentMaterialDetails = materials.find(m => m.name === selectedMaterial);
   const isAddItemDisabled = !selectedMaterial || !numMaterials || !costPerMaterial;
@@ -2274,17 +2275,16 @@ function DataEntryForm({ user }) {
       return () => unsubscribe();
   }, [user]);
   
-  // MODIFIED: This effect now calculates total amount based on the selected GST mode.
   useEffect(() => {
     const subtotal = pendingRecords.reduce((acc, record) => acc + parseFloat(record.cost || 0), 0);
     let totalGST = 0;
     if (gstMode === 'total') {
         totalGST = parseFloat(gstAmount) || 0;
-    } else { // gstMode === 'individual'
+    } else {
         totalGST = pendingRecords.reduce((acc, record) => acc + (parseFloat(record.gst) || 0), 0);
     }
     setTotalAmount((subtotal + totalGST).toFixed(2));
-  }, [gstAmount, pendingRecords, gstMode]); // Added gstMode to dependency array
+  }, [gstAmount, pendingRecords, gstMode]);
 
   const handleAddItem = () => {
     if (!vendorName || !vendorPhone || !vendorAddress || !billDate || !billNumber || !gstNumber) {
@@ -2352,8 +2352,8 @@ function DataEntryForm({ user }) {
   const handleDelete = (recordId) => {
       setPendingRecords(pendingRecords.filter(rec => rec.id !== recordId));
   };
-
-  const handleSubmit = async (e) => {
+  
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (!vendorName || !vendorPhone || !vendorAddress || !billDate || !billNumber || !gstNumber || pendingRecords.length === 0) {
       alert("Please fill all vendor details and add at least one material record.");
@@ -2363,6 +2363,10 @@ function DataEntryForm({ user }) {
         alert("Please enter the Total GST Amount before submitting.");
         return;
     }
+    setShowConfirmModal(true);
+  };
+
+  const confirmAndSubmit = async () => {
     try {
       const totalGST = gstMode === 'individual' ? pendingRecords.reduce((sum, rec) => sum + (parseFloat(rec.gst) || 0), 0) : parseFloat(gstAmount) || 0;
       const totalAmountToSave = pendingRecords.reduce((acc, record) => acc + parseFloat(record.cost || 0), 0) + totalGST;
@@ -2378,6 +2382,8 @@ function DataEntryForm({ user }) {
     } catch (error) {
       console.error("Error submitting request: ", error);
       alert("Failed to submit request. Please try again.");
+    } finally {
+        setShowConfirmModal(false);
     }
   };
 
@@ -2548,6 +2554,12 @@ function DataEntryForm({ user }) {
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 h-full">
+      {showConfirmModal && (
+          <ConfirmationModal
+              onConfirm={confirmAndSubmit}
+              onCancel={() => setShowConfirmModal(false)}
+          />
+      )}
       {isBulkAddModalOpen && (
           <BulkAddModal
               data={bulkAddData}
@@ -2607,7 +2619,7 @@ function DataEntryForm({ user }) {
                 {materials.map(mat => <option key={mat.id} value={mat.name}>{mat.name}</option>)}
               </select>
             </div>
-            <div className="grid grid-cols-3 gap-4"> {/* Changed from 2 to 3 columns */}
+            <div className="grid grid-cols-3 gap-4">
               <input type="text" pattern="\\d*" placeholder="Number of Materials" className="w-full p-2 border border-gray-300 rounded-md" value={numMaterials} onChange={e => setNumMaterials(e.target.value.replace(/\D/g, ''))} />
               <select className="w-full p-2 border border-gray-300 rounded-md" value={unit} onChange={e => setUnit(e.target.value)}>
                 {unitOptions.map(opt => <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>)}
@@ -2635,7 +2647,6 @@ function DataEntryForm({ user }) {
             </div>
           </div>
           <hr className="my-4"/>
-          {/* MODIFIED: This section now correctly displays the total amount for both GST modes. */}
           <div className="grid grid-cols-2 gap-4">
             <div>
                 {gstMode === 'total' && (
@@ -2726,12 +2737,13 @@ function DataEntryForm({ user }) {
   );
 }
 
-// --- Bulk Add Modal Component [NEW] ---
+// --- Bulk Add Modal Component [MODIFIED] ---
 function BulkAddModal({ data, onClose, onConfirm }) {
     const { name, quantity, costPerItem, type, info, unit } = data;
     const [items, setItems] = useState(() => 
         Array.from({ length: quantity }, () => ({ serialNumber: '', modelNumber: '', productCondition: 'Good' }))
     );
+
     const handleInputChange = (index, field, value) => {
         const newItems = [...items];
         newItems[index][field] = value;
@@ -2747,12 +2759,12 @@ function BulkAddModal({ data, onClose, onConfirm }) {
         }
         
         const newRecords = items.map(item => ({
-            id: Date.now() + Math.random(), // Simple unique ID for local state
+            id: Date.now() + Math.random(),
             name,
             type,
             info,
             quantity: 1,
-            unit, // <-- add this line
+            unit,
             cost: costPerItem,
             serialNumber: item.serialNumber,
             modelNumber: item.modelNumber,
