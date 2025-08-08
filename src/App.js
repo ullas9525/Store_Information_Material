@@ -879,14 +879,15 @@ function CaseworkerDashboard({ user, onLogout }) {
   );
 }
 
-// --- Reports Tab Component (for Caseworker) [FIXED] ---
+// --- Reports Tab Component (for Caseworker) [MODIFIED] ---
 function ReportsTab() {
     const [reportData, setReportData] = useState([]);
     const [monthlyReportData, setMonthlyReportData] = useState([]);
     const [annualReportData, setAnnualReportData] = useState([]);
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
-    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [reportMonth, setReportMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
+    const [reportYear, setReportYear] = useState(new Date().getFullYear());
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [activeReportTab, setActiveReportTab] = useState('dateReport');
@@ -956,7 +957,8 @@ function ReportsTab() {
     };
 
     const handleGenerateMonthlyReport = async () => {
-        const [year, month] = selectedMonth.split('-').map(Number);
+        const selectedMonthString = `${reportYear}-${reportMonth}`;
+        const [year, month] = selectedMonthString.split('-').map(Number);
         const firstDayOfSelectedMonth = new Date(year, month - 1, 1);
         const lastDayOfSelectedMonth = new Date(year, month, 0);
         lastDayOfSelectedMonth.setHours(23, 59, 59, 999);
@@ -967,7 +969,7 @@ function ReportsTab() {
 
         const allPurchasesQuery = query(
             collection(db, "approval_requests"),
-            where("billDate", "<=", selectedMonth + '-' + lastDayOfSelectedMonth.getDate())
+            where("billDate", "<=", selectedMonthString + '-' + lastDayOfSelectedMonth.getDate())
         );
         const allPurchasesSnapshot = await getDocs(allPurchasesQuery);
 
@@ -1123,7 +1125,7 @@ function ReportsTab() {
         } else if (activeReportTab === 'annualReport') {
             handleGenerateAnnualReport();
         }
-    }, [toDate, fromDate, activeReportTab, selectedMonth, selectedYear]);
+    }, [toDate, fromDate, activeReportTab, reportMonth, reportYear, selectedYear]);
 
     const exportToPDF = () => {
         if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
@@ -1297,9 +1299,23 @@ function ReportsTab() {
             )}
             
             {activeReportTab === 'monthlyReport' && (
-                <div className="flex items-center gap-2 mb-6">
+                <div className="flex items-center gap-4 mb-6">
                     <label className="text-sm font-medium text-gray-700">Select Month:</label>
-                    <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="p-2 border border-gray-300 rounded-md" />
+                    <div className="flex items-center gap-2">
+                        <select value={reportMonth} onChange={e => setReportMonth(e.target.value)} className="p-2 border border-gray-300 rounded-md">
+                            {Array.from({ length: 12 }, (_, i) => {
+                                const month = String(i + 1).padStart(2, '0');
+                                return <option key={month} value={month}>{month}</option>;
+                            })}
+                        </select>
+                        <span className="text-gray-500">/</span>
+                        <select value={reportYear} onChange={e => setReportYear(e.target.value)} className="p-2 border border-gray-300 rounded-md">
+                            {Array.from({ length: 10 }, (_, i) => {
+                                const year = new Date().getFullYear() - i;
+                                return <option key={year} value={year}>{year}</option>;
+                            })}
+                        </select>
+                    </div>
                 </div>
             )}
 
