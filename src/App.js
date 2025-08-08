@@ -2205,7 +2205,7 @@ function ConsumerHandover() {
 }
 
 
-// --- Data Entry Form Component [FIXED] ---
+// --- Data Entry Form Component [MODIFIED] ---
 function DataEntryForm({ user }) {
   const [vendorName, setVendorName] = useState('');
   const [vendorPhone, setVendorPhone] = useState('');
@@ -2225,15 +2225,13 @@ function DataEntryForm({ user }) {
   const [gstAmount, setGstAmount] = useState('');
   const [totalAmount, setTotalAmount] = useState('0.00');
   const [editingRecordId, setEditingRecordId] = useState(null);
-  // --- Unit state and options (fix scope) ---
   const [unit, setUnit] = useState('piece');
   const unitOptions = [
     'piece', 'packet', 'rim', 'set', 'box', 'dozen', 'roll', 'bundle', 'bottle', 'bag', 'ream', 'carton', 'tube', 'pad', 'can', 'sheet', 'meter', 'litre', 'kg', 'pair', 'strip', 'sachet', 'jar', 'barrel', 'drum', 'container', 'envelope', 'folder', 'file', 'cup', 'tray', 'kit', 'bunch', 'bundle', 'pad', 'book', 'case', 'unit', 'Add',
   ];
   const [customUnit, setCustomUnit] = useState('');
-  // Add GST mode state
-  const [gstMode, setGstMode] = useState('total'); // 'total' or 'individual'
-  const [itemGST, setItemGST] = useState(''); // for Add Item form
+  const [gstMode, setGstMode] = useState('total');
+  const [itemGST, setItemGST] = useState('');
 
   const currentMaterialDetails = materials.find(m => m.name === selectedMaterial);
   const isAddItemDisabled = !selectedMaterial || !numMaterials || !costPerMaterial;
@@ -2276,11 +2274,17 @@ function DataEntryForm({ user }) {
       return () => unsubscribe();
   }, [user]);
   
+  // MODIFIED: This effect now calculates total amount based on the selected GST mode.
   useEffect(() => {
     const subtotal = pendingRecords.reduce((acc, record) => acc + parseFloat(record.cost || 0), 0);
-    const gst = parseFloat(gstAmount) || 0;
-    setTotalAmount((subtotal + gst).toFixed(2));
-  }, [gstAmount, pendingRecords]);
+    let totalGST = 0;
+    if (gstMode === 'total') {
+        totalGST = parseFloat(gstAmount) || 0;
+    } else { // gstMode === 'individual'
+        totalGST = pendingRecords.reduce((acc, record) => acc + (parseFloat(record.gst) || 0), 0);
+    }
+    setTotalAmount((subtotal + totalGST).toFixed(2));
+  }, [gstAmount, pendingRecords, gstMode]); // Added gstMode to dependency array
 
   const handleAddItem = () => {
     if (!vendorName || !vendorPhone || !vendorAddress || !billDate || !billNumber || !gstNumber) {
@@ -2293,7 +2297,6 @@ function DataEntryForm({ user }) {
       return;
     }
 
-    // If the item is Returnable, always use the bulk add modal to capture serial numbers.
     if (currentMaterialDetails.type === 'Returnable') {
         setBulkAddData({
             name: selectedMaterial,
@@ -2306,7 +2309,6 @@ function DataEntryForm({ user }) {
         return;
     }
 
-    // This logic now only applies to Non-Returnable items.
     const totalCost = parseFloat(numMaterials) * parseFloat(costPerMaterial);
     const newRecord = {
       id: editingRecordId || Date.now(),
@@ -2314,9 +2316,9 @@ function DataEntryForm({ user }) {
       type: currentMaterialDetails.type,
       info: currentMaterialDetails.info,
       quantity: numMaterials,
-      unit: unit === 'Add' ? customUnit : unit, // <-- add this line
+      unit: unit === 'Add' ? customUnit : unit,
       cost: totalCost.toFixed(2),
-      ...(gstMode === 'individual' && { gst: itemGST }),
+      ...(gstMode === 'individual' && { gst: (parseFloat(itemGST || 0) * parseInt(numMaterials, 10)).toFixed(2) }),
     };
 
     if (editingRecordId) {
@@ -2337,12 +2339,14 @@ function DataEntryForm({ user }) {
   }
   
   const handleEdit = (record) => {
-    // Note: Editing items with serial numbers will now require deleting and re-adding via the modal.
     setEditingRecordId(record.id);
     setSelectedMaterial(record.name);
     setNumMaterials(record.quantity);
     setCostPerMaterial(parseFloat(record.cost) / parseFloat(record.quantity));
     setCustomUnit(record.unit && !unitOptions.includes(record.unit) ? record.unit : '');
+    if (record.gst) {
+        setItemGST(record.gst);
+    }
   };
 
   const handleDelete = (recordId) => {
@@ -2355,8 +2359,8 @@ function DataEntryForm({ user }) {
       alert("Please fill all vendor details and add at least one material record.");
       return;
     }
-     if (!gstAmount) {
-        alert("Please enter the GST Amount before submitting.");
+     if (gstMode === 'total' && !gstAmount) {
+        alert("Please enter the Total GST Amount before submitting.");
         return;
     }
     try {
@@ -2621,7 +2625,7 @@ function DataEntryForm({ user }) {
               )}
               <input type="text" placeholder="Cost Per Material" className="w-full p-2 border border-gray-300 rounded-md" value={costPerMaterial} onChange={e => { const val = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'); setCostPerMaterial(val); }} />
               {gstMode === 'individual' && (
-                <input type="text" placeholder="GST per Item" className="w-full p-2 border border-gray-300 rounded-md col-span-1" value={itemGST} onChange={e => setItemGST(e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'))} />
+                <input type="text" placeholder="GST per Material" className="w-full p-2 border border-gray-300 rounded-md col-span-1" value={itemGST} onChange={e => setItemGST(e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'))} />
               )}
             </div>
             <div>
@@ -2631,14 +2635,35 @@ function DataEntryForm({ user }) {
             </div>
           </div>
           <hr className="my-4"/>
-          {gstMode === 'total' && (
-            <div className="grid grid-cols-2 gap-4">
-              <input type="text" placeholder="GST Amount" value={gstAmount} onChange={e => { const val = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'); setGstAmount(val); }} className="w-full p-2 border border-gray-300 rounded-md" />
-              <input type="text" readOnly value={`₹${totalAmount}`} className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" placeholder="Total Amount" />
+          {/* MODIFIED: This section now correctly displays the total amount for both GST modes. */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+                {gstMode === 'total' && (
+                    <>
+                        <label className="block text-sm font-medium text-gray-600 mb-1">GST Amount</label>
+                        <input 
+                            type="text" 
+                            placeholder="GST Amount" 
+                            value={gstAmount} 
+                            onChange={e => { const val = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'); setGstAmount(val); }} 
+                            className="w-full p-2 border border-gray-300 rounded-md" 
+                        />
+                    </>
+                )}
             </div>
-          )}
+            <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Total Amount (with GST)</label>
+                <input 
+                    type="text" 
+                    readOnly 
+                    value={`₹${totalAmount}`} 
+                    className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" 
+                    placeholder="Total Amount" 
+                />
+            </div>
+          </div>
           <div>
-            <button type="submit" className="w-full py-3 px-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 disabled:bg-gray-400" disabled={pendingRecords.length === 0 || !gstAmount}>Submit for Approval</button>
+            <button type="submit" className="w-full py-3 px-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 disabled:bg-gray-400" disabled={pendingRecords.length === 0}>Submit for Approval</button>
           </div>
         </form>
       </div>
@@ -2705,9 +2730,8 @@ function DataEntryForm({ user }) {
 function BulkAddModal({ data, onClose, onConfirm }) {
     const { name, quantity, costPerItem, type, info, unit } = data;
     const [items, setItems] = useState(() => 
-        Array.from({ length: quantity }, () => ({ serialNumber: '', modelNumber: '', productCondition: '' }))
+        Array.from({ length: quantity }, () => ({ serialNumber: '', modelNumber: '', productCondition: 'Good' }))
     );
-
     const handleInputChange = (index, field, value) => {
         const newItems = [...items];
         newItems[index][field] = value;
@@ -2765,7 +2789,6 @@ function BulkAddModal({ data, onClose, onConfirm }) {
                                     </td>
                                     <td className="p-2">
                                         <select value={item.productCondition} onChange={(e) => handleInputChange(index, 'productCondition', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md">
-                                            <option value="">Select Condition</option>
                                             <option>Good</option>
                                             <option>Normal</option>
                                             <option>Bad</option>
