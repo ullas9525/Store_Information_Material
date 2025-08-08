@@ -152,7 +152,7 @@ const EyeIcon = ({ visible, onClick }) => (
 );
 
 
-// --- Login Component [UPDATED] ---
+// --- Login Component ---
 function Login({ onLogin, error }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -172,7 +172,7 @@ function Login({ onLogin, error }) {
                         <label htmlFor="email" className="text-sm font-medium text-gray-700">Email address</label>
                         <input id="email" name="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="you@example.com" />
                     </div>
-                    <div className="relative flex items-center h-12"> {/* Center eye icon vertically */}
+                    <div className="relative flex items-center h-12">
                         <label htmlFor="password" className="text-sm font-medium text-gray-700 absolute left-0 top-0 mt-[-1.5rem]">Password</label>
                         <input id="password" name="password" type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 pr-12" placeholder="••••••••" />
                         <EyeIcon visible={showPassword} onClick={() => setShowPassword(!showPassword)} />
@@ -290,7 +290,6 @@ function SettingsButton({ user, onLogout }) {
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
     const dropdownRef = useRef(null);
 
-    // Close dropdown if clicked outside
     useEffect(() => {
         function handleClickOutside(event) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -341,7 +340,7 @@ function SettingsButton({ user, onLogout }) {
     );
 }
 
-// --- Add Designation Modal [NEW] ---
+// --- Add Designation Modal ---
 function AddDesignationModal({ onClose, onAddDesignation }) {
     const [newDesignationName, setNewDesignationName] = useState('');
     const [error, setError] = useState('');
@@ -385,63 +384,49 @@ function AddDesignationModal({ onClose, onAddDesignation }) {
 }
 
 
-// --- Master Dashboard Component [UPDATED] ---
+// --- Master Dashboard Component ---
 function MasterDashboard({ user, onLogout }) {
     const [users, setUsers] = useState([]);
-    // State for new user form
     const [uniqueId, setUniqueId] = useState('');
     const [name, setName] = useState('');
     const [designation, setDesignation] = useState('');
     const [newUserEmail, setNewUserEmail] = useState('');
-    const [newUserRole, setNewUserRole] = useState('consumer'); // Default to consumer
+    const [newUserRole, setNewUserRole] = useState('consumer');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    
-    // State for password visibility
     const [showSetPassword, setShowSetPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    
-    // State for designations
     const [designations, setDesignations] = useState([]);
-    const [isAddDesignationModalOpen, setIsAddDesignationModalOpen] = useState(false); // NEW state for modal
-
-    // State for user editing mode
+    const [isAddDesignationModalOpen, setIsAddDesignationModalOpen] = useState(false);
     const [editingUserId, setEditingUserId] = useState(null);
-    
-    // State for materials
     const [materials, setMaterials] = useState([]);
     const [newMaterialName, setNewMaterialName] = useState('');
     const [newMaterialType, setNewMaterialType] = useState('Non-returnable');
     const [newMaterialInfo, setNewMaterialInfo] = useState('Non-Electronic');
-    const [editingMaterialId, setEditingMaterialId] = useState(null); // State for material editing
+    const [caseworkerUnit, setCaseworkerUnit] = useState('');
+    const [consumerUnit, setConsumerUnit] = useState('');
+    const [editingMaterialId, setEditingMaterialId] = useState(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
     useEffect(() => {
-        // Subscribe to user changes
         const usersUnsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
-            const usersList = snapshot.docs
-                .map(doc => ({ id: doc.id, ...doc.data() }))
-                .filter(u => u.role !== 'master');
+            const usersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(u => u.role !== 'master');
             setUsers(usersList);
         });
         
-        // Subscribe to material changes
         const materialsUnsubscribe = onSnapshot(collection(db, 'materials'), (snapshot) => {
             const materialsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setMaterials(materialsList);
         });
 
-        // Subscribe to designation changes
         const designationsUnsubscribe = onSnapshot(collection(db, 'designations'), (snapshot) => {
             const designationsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            // Add default designations if they don't exist in the fetched list
             const defaultDesignations = ["First Division Assistant", "Second Division Assistant", "Shiristhedar (RHA)"];
             const allDesignations = [...defaultDesignations, ...designationsList.map(d => d.name)];
-            const uniqueDesignations = [...new Set(allDesignations)]; // Ensure uniqueness
+            const uniqueDesignations = [...new Set(allDesignations)];
             setDesignations(uniqueDesignations.map(name => ({name})));
         });
 
-        // Cleanup subscriptions on component unmount
         return () => {
             usersUnsubscribe();
             materialsUnsubscribe();
@@ -449,7 +434,7 @@ function MasterDashboard({ user, onLogout }) {
         };
     }, []);
 
-    const handleAddDesignation = async (designationName) => { // Modified to accept designationName
+    const handleAddDesignation = async (designationName) => {
         if (!designationName) {
             alert("Please enter a designation name.");
             return;
@@ -470,7 +455,7 @@ function MasterDashboard({ user, onLogout }) {
         setNewUserEmail('');
         setPassword('');
         setConfirmPassword('');
-        setNewUserRole('consumer'); // Default to consumer
+        setNewUserRole('consumer');
         setEditingUserId(null);
     };
 
@@ -520,8 +505,6 @@ function MasterDashboard({ user, onLogout }) {
     };
 
     const handleDeleteUser = async (userId) => {
-        // Replaced window.confirm with a custom modal for consistency if needed,
-        // but keeping it for now as per previous implementation.
         if (window.confirm("Are you sure you want to delete this user? This will remove their access permanently.")) {
             try {
                 await deleteDoc(doc(db, 'users', userId));
@@ -546,14 +529,25 @@ function MasterDashboard({ user, onLogout }) {
         setNewMaterialName('');
         setNewMaterialType('Non-returnable');
         setNewMaterialInfo('Non-Electronic');
+        setCaseworkerUnit('');
+        setConsumerUnit('');
         setEditingMaterialId(null);
     };
 
     const handleMaterialFormSubmit = async (e) => {
         e.preventDefault();
-        if (!newMaterialName) { alert("Please enter a material name."); return; }
+        if (!newMaterialName || !caseworkerUnit || !consumerUnit) {
+            alert("Please fill in all material details, including units.");
+            return;
+        }
 
-        const materialData = { name: newMaterialName, type: newMaterialType, info: newMaterialInfo };
+        const materialData = {
+            name: newMaterialName,
+            type: newMaterialType,
+            info: newMaterialInfo,
+            caseworkerUnit: caseworkerUnit,
+            consumerUnit: consumerUnit,
+        };
 
         if (editingMaterialId) {
             try {
@@ -581,6 +575,8 @@ function MasterDashboard({ user, onLogout }) {
         setNewMaterialName(materialToEdit.name);
         setNewMaterialType(materialToEdit.type);
         setNewMaterialInfo(materialToEdit.info);
+        setCaseworkerUnit(materialToEdit.caseworkerUnit || '');
+        setConsumerUnit(materialToEdit.consumerUnit || '');
     };
 
     const handleDeleteMaterial = async (materialId) => {
@@ -625,14 +621,14 @@ function MasterDashboard({ user, onLogout }) {
                             <select value={designation} onChange={(e) => {
                                 if (e.target.value === "add-new") {
                                     setIsAddDesignationModalOpen(true);
-                                    setDesignation(''); // Reset selection
+                                    setDesignation('');
                                 } else {
                                     setDesignation(e.target.value);
                                 }
                             }} className="flex-grow p-2 border border-gray-300 rounded-md" required>
                                 <option value="">Select Designation</option>
                                 {designations.map((d, index) => <option key={index} value={d.name}>{d.name}</option>)}
-                                <option value="add-new">Add New Designation...</option> {/* New option */}
+                                <option value="add-new">Add New Designation...</option>
                             </select>
                         </div>
                          <div className="flex items-center">
@@ -642,16 +638,16 @@ function MasterDashboard({ user, onLogout }) {
                         </div>
                         {!editingUserId && (
                             <>
-                                <div className="relative flex items-center"> {/* Added relative positioning here */}
+                                <div className="relative flex items-center">
                                     <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Set Password</label>
                                     <span className="mx-2">:</span>
-                                    <input type={showSetPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md pr-10" required /> {/* Added pr-10 */}
+                                    <input type={showSetPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md pr-10" required />
                                     <EyeIcon visible={showSetPassword} onClick={() => setShowSetPassword(!showSetPassword)} />
                                 </div>
-                                <div className="relative flex items-center"> {/* Added relative positioning here */}
+                                <div className="relative flex items-center">
                                     <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Confirm Password</label>
                                     <span className="mx-2">:</span>
-                                    <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md pr-10" required /> {/* Added pr-10 */}
+                                    <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md pr-10" required />
                                     <EyeIcon visible={showConfirmPassword} onClick={() => setShowConfirmPassword(!showConfirmPassword)} />
                                 </div>
                             </>
@@ -707,46 +703,51 @@ function MasterDashboard({ user, onLogout }) {
                     </div>
                 </div>
                 <div className="bg-white p-6 rounded-lg shadow-md flex flex-col">
-                    {/* Add/Edit Material Form */}
                     <div className="flex-shrink-0">
                         <h2 className="text-2xl font-semibold mb-4">{editingMaterialId ? 'Edit Material' : 'Add Material'}</h2>
                         <form onSubmit={handleMaterialFormSubmit} className="space-y-4 p-4 border rounded-md">
-                            <div className="flex flex-wrap items-end gap-4">
-    <div className="flex-grow min-w-[150px]">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Material Name</label>
-        <input type="text" value={newMaterialName} onChange={(e) => setNewMaterialName(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" required />
-    </div>
-    <div className="flex-grow min-w-[150px]">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Material Type</label>
-        <select value={newMaterialType} onChange={(e) => setNewMaterialType(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md">
-            <option>Non-returnable</option>
-            <option>Returnable</option>
-        </select>
-    </div>
-    <div className="flex-grow min-w-[150px]">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Material Information</label>
-        <select value={newMaterialInfo} onChange={(e) => setNewMaterialInfo(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md">
-            <option>Non-Electronic</option>
-            <option>Electronic</option>
-        </select>
-    </div>
-    <div className="flex gap-2">
-        {editingMaterialId && (
-            <button type="button" onClick={resetMaterialForm} className="px-4 py-2 bg-gray-500 text-white font-semibold rounded-md hover:bg-gray-600">Cancel</button>
-        )}
-        <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shrink-0">
-            {editingMaterialId ? 'Update' : 'Add'}
-        </button>
-    </div>
-</div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Material Name</label>
+                                    <input type="text" value={newMaterialName} onChange={(e) => setNewMaterialName(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" required />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Material Type</label>
+                                    <select value={newMaterialType} onChange={(e) => setNewMaterialType(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md">
+                                        <option>Non-returnable</option>
+                                        <option>Returnable</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Material Information</label>
+                                    <select value={newMaterialInfo} onChange={(e) => setNewMaterialInfo(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md">
+                                        <option>Non-Electronic</option>
+                                        <option>Electronic</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Caseworker Units (e.g. Box, Rim)</label>
+                                    <input type="text" placeholder="Units for procurement" value={caseworkerUnit} onChange={(e) => setCaseworkerUnit(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" required />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Consumer Unit (e.g. Rim)</label>
+                                    <input type="text" placeholder="Unit for distribution" value={consumerUnit} onChange={(e) => setConsumerUnit(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" required />
+                                </div>
+                            </div>
+                            <div className="flex gap-2 justify-end pt-2">
+                                {editingMaterialId && (
+                                    <button type="button" onClick={resetMaterialForm} className="px-4 py-2 bg-gray-500 text-white font-semibold rounded-md hover:bg-gray-600">Cancel</button>
+                                )}
+                                <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shrink-0">
+                                    {editingMaterialId ? 'Update Material' : 'Add Material'}
+                                </button>
+                            </div>
                         </form>
                     </div>
                     <hr className="my-6 flex-shrink-0"/>
-                    {/* Manage Materials Section */}
                     <div className="flex flex-col flex-grow min-h-0">
                         <h2 className="text-2xl font-semibold mb-4 flex-shrink-0">Manage Materials</h2>
                         <div className="grid grid-cols-2 gap-4 flex-grow min-h-0">
-                            {/* Returnable Materials Column */}
                             <div className="flex flex-col min-h-0">
                                 <h3 className="font-semibold text-lg mb-2 flex-shrink-0">Returnable Materials</h3>
                                 <div className="border rounded-md overflow-y-auto max-h-96">
@@ -783,7 +784,6 @@ function MasterDashboard({ user, onLogout }) {
                                     </table>
                                 </div>
                             </div>
-                            {/* Non-Returnable Materials Column */}
                             <div className="flex flex-col min-h-0">
                                 <h3 className="font-semibold text-lg mb-2 flex-shrink-0">Non-returnable Materials</h3>
                                 <div className="border rounded-md overflow-y-auto max-h-96">
@@ -879,7 +879,7 @@ function CaseworkerDashboard({ user, onLogout }) {
   );
 }
 
-// --- Reports Tab Component (for Caseworker) [MODIFIED] ---
+// --- Reports Tab Component (for Caseworker) ---
 function ReportsTab() {
     const [reportData, setReportData] = useState([]);
     const [monthlyReportData, setMonthlyReportData] = useState([]);
@@ -1432,7 +1432,7 @@ function ReportsTab() {
     );
 }
 
-// --- Existing Items Tab (for Caseworker) [NEW] ---
+// --- Existing Items Tab (for Caseworker) ---
 function ExistingItemsTabForCaseworker() {
     const [returnableItems, setReturnableItems] = useState([]);
     const [nonReturnableItems, setNonReturnableItems] = useState([]);
@@ -1584,7 +1584,7 @@ function ExistingItemsTabForCaseworker() {
     );
 }
 
-// --- Verification History Tab (for Caseworker) [NEW] ---
+// --- Verification History Tab (for Caseworker) ---
 function VerificationHistoryTab() {
     const [history, setHistory] = useState([]);
 
@@ -1656,7 +1656,7 @@ function VerificationHistoryTab() {
 }
 
 
-// --- Annual Verification Report Component (for Caseworker) [NEW] ---
+// --- Annual Verification Report Component (for Caseworker) ---
 function AnnualVerificationReport({ user }) {
     const [returnableItems, setReturnableItems] = useState([]);
     const [users, setUsers] = useState({});
@@ -1882,7 +1882,6 @@ function ConsumerItemsReport() {
     const [users, setUsers] = useState({});
     const [materials, setMaterials] = useState({});
 
-    // Helper to format Firestore Timestamp to DD/MM/YYYY
     const formatDate = (timestamp) => {
         if (!timestamp) return 'N/A';
         const date = timestamp.toDate();
@@ -1979,7 +1978,7 @@ function ConsumerItemsReport() {
 }
 
 
-// --- Consumer Handover Component (for Caseworker) [FIXED] ---
+// --- Consumer Handover Component (for Caseworker) ---
 function ConsumerHandover() {
     const [itemsForHandover, setItemsForHandover] = useState([]);
     const [users, setUsers] = useState({});
@@ -1988,7 +1987,6 @@ function ConsumerHandover() {
     const [selectedSerials, setSelectedSerials] = useState({});
 
     useEffect(() => {
-        // Fetches all user data
         const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
             const usersMap = {};
             snapshot.forEach(doc => {
@@ -1997,7 +1995,6 @@ function ConsumerHandover() {
             setUsers(usersMap);
         });
 
-        // Fetches all approved items for handover
         const q = query(collection(db, "distribution_requests"), where("status", "in", ["approved", "partially-approved"]));
         const unsubscribeRequests = onSnapshot(q, (snapshot) => {
             const allItems = [];
@@ -2007,8 +2004,8 @@ function ConsumerHandover() {
                     if (item.status === 'approved') {
                         allItems.push({
                             ...item,
-                            uniqueId: `${doc.id}-${index}`, // A unique key for each item in the list
-                            itemIndex: index, // Track the item's original index
+                            uniqueId: `${doc.id}-${index}`,
+                            itemIndex: index,
                             requestId: request.id,
                             consumerId: request.consumerId,
                         });
@@ -2018,7 +2015,6 @@ function ConsumerHandover() {
             setItemsForHandover(allItems);
         });
 
-        // Fetches available serial numbers for returnable items
         const unsubscribeStock = onSnapshot(query(collection(db, "approval_requests")), (approvalSnapshot) => {
             const stock = {};
             approvalSnapshot.forEach(doc => {
@@ -2065,24 +2061,22 @@ function ConsumerHandover() {
                 if (!requestDoc.exists()) throw new Error("Document does not exist!");
     
                 const requestData = requestDoc.data();
-                const newItems = [...requestData.items]; // Create a mutable copy
+                const newItems = [...requestData.items];
     
-                // Ensure the item exists at the specified index before updating
                 if (itemIndex >= 0 && itemIndex < newItems.length) {
                     const updatedItem = {
-                        ...newItems[itemIndex], // Start with the original item data
+                        ...newItems[itemIndex],
                         status: newStatus,
                         dateTaken: newStatus === 'collected' ? new Date() : null,
                         messengerName: newStatus === 'collected' ? messengerName : '',
                     };
     
-                    // Only add serial/model numbers for returnable items being collected
                     if (type === 'Returnable' && newStatus === 'collected') {
                         updatedItem.serialNumber = selectedSerialInfo.serialNumber || '';
                         updatedItem.modelNumber = selectedSerialInfo.modelNumber || '';
                     }
     
-                    newItems[itemIndex] = updatedItem; // Replace the old item with the updated one
+                    newItems[itemIndex] = updatedItem;
                 } else {
                     console.error("Invalid item index:", itemIndex);
                     throw new Error("Could not find the item to update.");
@@ -2221,7 +2215,7 @@ function ConsumerHandover() {
 }
 
 
-// --- Data Entry Form Component [MODIFIED] ---
+// --- Data Entry Form Component [FIXED with consumerUnit] ---
 function DataEntryForm({ user }) {
   const [vendorName, setVendorName] = useState('');
   const [vendorPhone, setVendorPhone] = useState('');
@@ -2241,17 +2235,19 @@ function DataEntryForm({ user }) {
   const [gstAmount, setGstAmount] = useState('');
   const [totalAmount, setTotalAmount] = useState('0.00');
   const [editingRecordId, setEditingRecordId] = useState(null);
-  const [unit, setUnit] = useState('piece');
-  const unitOptions = [
-    'piece', 'packet', 'rim', 'set', 'box', 'dozen', 'roll', 'bundle', 'bottle', 'bag', 'ream', 'carton', 'tube', 'pad', 'can', 'sheet', 'meter', 'litre', 'kg', 'pair', 'strip', 'sachet', 'jar', 'barrel', 'drum', 'container', 'envelope', 'folder', 'file', 'cup', 'tray', 'kit', 'bunch', 'bundle', 'pad', 'book', 'case', 'unit', 'Add',
-  ];
-  const [customUnit, setCustomUnit] = useState('');
+  
+  const [unit, setUnit] = useState('');
+  const [unitOptions, setUnitOptions] = useState([]);
+  const [baseUnit, setBaseUnit] = useState('');
+  const [showConversionInput, setShowConversionInput] = useState(false);
+  const [itemsPerContainer, setItemsPerContainer] = useState('');
+
   const [gstMode, setGstMode] = useState('total');
   const [itemGST, setItemGST] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const currentMaterialDetails = materials.find(m => m.name === selectedMaterial);
-  const isAddItemDisabled = !selectedMaterial || !numMaterials || !costPerMaterial;
+  const isAddItemDisabled = !selectedMaterial || !numMaterials || !costPerMaterial || !unit;
 
   useEffect(() => {
     const materialsCollection = collection(db, 'materials');
@@ -2261,6 +2257,38 @@ function DataEntryForm({ user }) {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (selectedMaterial && materials.length > 0) {
+        const material = materials.find(m => m.name === selectedMaterial);
+        if (material && material.caseworkerUnit) {
+            const units = material.caseworkerUnit.split(',').map(u => u.trim());
+            setUnitOptions(units);
+            setUnit(units[0] || '');
+            setBaseUnit(units.length > 1 ? units[1] : units[0]);
+        } else {
+            setUnitOptions([]);
+            setUnit('');
+            setBaseUnit('');
+        }
+    } else {
+        setUnitOptions([]);
+        setUnit('');
+        setBaseUnit('');
+    }
+    setShowConversionInput(false);
+    setItemsPerContainer('');
+  }, [selectedMaterial, materials]);
+
+  useEffect(() => {
+    const containerWords = ['box', 'boxes', 'carton', 'case'];
+    if (unit && containerWords.some(word => unit.toLowerCase().includes(word)) && unitOptions.length > 1) {
+        setShowConversionInput(true);
+    } else {
+        setShowConversionInput(false);
+        setItemsPerContainer('');
+    }
+  }, [unit, unitOptions]);
 
   useEffect(() => {
       if (!user) return;
@@ -2309,7 +2337,12 @@ function DataEntryForm({ user }) {
     }
 
     if (isAddItemDisabled) {
-      alert("Please fill in material name, number, and cost.");
+      alert("Please fill in material name, number, unit, and cost.");
+      return;
+    }
+    
+    if (showConversionInput && (!itemsPerContainer || parseInt(itemsPerContainer) <= 0)) {
+      alert(`Please enter a valid number of ${baseUnit}s per ${unit}.`);
       return;
     }
 
@@ -2319,22 +2352,30 @@ function DataEntryForm({ user }) {
             type: currentMaterialDetails.type,
             info: currentMaterialDetails.info,
             quantity: parseInt(numMaterials, 10),
-            costPerItem: parseFloat(costPerMaterial).toFixed(2)
+            costPerItem: parseFloat(costPerMaterial).toFixed(2),
+            unit: baseUnit,
+            consumerUnit: currentMaterialDetails.consumerUnit,
         });
         setIsBulkAddModalOpen(true);
         return;
     }
+    
+    const quantityOfContainers = parseInt(numMaterials, 10);
+    const totalQuantity = showConversionInput 
+        ? quantityOfContainers * parseInt(itemsPerContainer, 10) 
+        : quantityOfContainers;
 
-    const totalCost = parseFloat(numMaterials) * parseFloat(costPerMaterial);
+    const totalCost = quantityOfContainers * parseFloat(costPerMaterial);
     const newRecord = {
       id: editingRecordId || Date.now(),
       name: selectedMaterial,
       type: currentMaterialDetails.type,
       info: currentMaterialDetails.info,
-      quantity: numMaterials,
-      unit: unit === 'Add' ? customUnit : unit,
+      quantity: totalQuantity,
+      unit: baseUnit,
+      consumerUnit: currentMaterialDetails.consumerUnit, // <-- FIX: Add consumerUnit here
       cost: totalCost.toFixed(2),
-      ...(gstMode === 'individual' && { gst: (parseFloat(itemGST || 0) * parseInt(numMaterials, 10)).toFixed(2) }),
+      ...(gstMode === 'individual' && { gst: (parseFloat(itemGST || 0) * quantityOfContainers).toFixed(2) }),
     };
 
     if (editingRecordId) {
@@ -2349,20 +2390,15 @@ function DataEntryForm({ user }) {
     setSelectedMaterial('');
     setNumMaterials('');
     setCostPerMaterial('');
+    setUnit('');
+    setItemsPerContainer('');
+    setShowConversionInput(false);
     setEditingRecordId(null);
-    setCustomUnit('');
     setItemGST('');
   }
   
   const handleEdit = (record) => {
-    setEditingRecordId(record.id);
-    setSelectedMaterial(record.name);
-    setNumMaterials(record.quantity);
-    setCostPerMaterial(parseFloat(record.cost) / parseFloat(record.quantity));
-    setCustomUnit(record.unit && !unitOptions.includes(record.unit) ? record.unit : '');
-    if (record.gst) {
-        setItemGST(record.gst);
-    }
+    alert("Editing complex unit entries is not fully supported. Please delete and re-add the item.");
   };
 
   const handleDelete = (recordId) => {
@@ -2444,7 +2480,7 @@ function DataEntryForm({ user }) {
             `${record.name} ${record.serialNumber ? `(${record.serialNumber}/${record.modelNumber})` : ''}`,
             record.type, 
             record.info, 
-            record.quantity, 
+            `${record.quantity} ${record.unit || ''}`, 
             record.cost, 
             record.status || 'Pending'
         ];
@@ -2460,8 +2496,8 @@ function DataEntryForm({ user }) {
         styles: { fontSize: 8, cellPadding: 1.5 },
         headStyles: { fontSize: 8, fillColor: [34, 139, 34], textColor: 255 },
         columnStyles: {
-            3: { cellWidth: 40 }, // Address
-            7: { cellWidth: 35 }  // Material
+            3: { cellWidth: 40 }, 
+            7: { cellWidth: 35 }
         }
     });
     doc.save("material_records.pdf");
@@ -2482,27 +2518,15 @@ function DataEntryForm({ user }) {
         `${record.name} ${record.serialNumber ? `(${record.serialNumber}/${record.modelNumber})` : ''}`,
         record.type,
         record.info,
-        parseInt(record.quantity, 10),
+        `${record.quantity} ${record.unit || ''}`,
         parseFloat(record.cost),
         record.status || 'Pending'
     ]));
 
     const ws = window.XLSX.utils.aoa_to_sheet([header, ...body]);
-    // Set column widths
     ws['!cols'] = [
-        { wch: 5 },  // SL.NO
-        { wch: 20 }, // VENDOR
-        { wch: 15 }, // VENDOR PHONE
-        { wch: 30 }, // VENDOR ADDRESS
-        { wch: 15 }, // BILL NUMBER
-        { wch: 15 }, // GST NUMBER
-        { wch: 12 }, // BILL DATE
-        { wch: 30 }, // MATERIAL
-        { wch: 15 }, // TYPE
-        { wch: 15 }, // INFO
-        { wch: 10 }, // QUANTITY
-        { wch: 12 }, // COST
-        { wch: 12 }  // STATUS
+        { wch: 5 }, { wch: 20 }, { wch: 15 }, { wch: 30 }, { wch: 15 }, { wch: 15 }, 
+        { wch: 12 }, { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }
     ];
 
     const wb = { Sheets: { 'data': ws }, SheetNames: ['data'] };
@@ -2514,16 +2538,9 @@ function DataEntryForm({ user }) {
         <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
         <head><meta charset='utf-8'><title>Material Records</title>
         <style>
-            @page {
-                size: A4 landscape;
-                margin: 1.25cm;
-            }
-            body { 
-                font-family: Arial, sans-serif; 
-            }
-            .container {
-                text-align: center;
-            }
+            @page { size: A4 landscape; margin: 1.25cm; }
+            body { font-family: Arial, sans-serif; }
+            .container { text-align: center; }
             h1 { text-align: center; font-size: 16pt; }
             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
             th, td { border: 1px solid #dddddd; text-align: center; padding: 8px; font-size: 7pt; }
@@ -2636,26 +2653,25 @@ function DataEntryForm({ user }) {
               </select>
             </div>
             <div className="grid grid-cols-3 gap-4">
-              <input type="text" pattern="\\d*" placeholder="Number of Materials" className="w-full p-2 border border-gray-300 rounded-md" value={numMaterials} onChange={e => setNumMaterials(e.target.value.replace(/\D/g, ''))} />
-              <select className="w-full p-2 border border-gray-300 rounded-md" value={unit} onChange={e => setUnit(e.target.value)}>
-                {unitOptions.map(opt => <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>)}
-              </select>
-              {unit === 'Add' && (
-                <input
-                  type="text"
-                  className="w-full p-2 border border-gray-300 rounded-md mt-2"
-                  placeholder="Enter custom unit"
-                  value={customUnit}
-                  onChange={e => setCustomUnit(e.target.value)}
-                  onBlur={() => { if (customUnit) setUnit(customUnit); }}
-                  required
-                />
-              )}
-              <input type="text" placeholder="Cost Per Material" className="w-full p-2 border border-gray-300 rounded-md" value={costPerMaterial} onChange={e => { const val = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'); setCostPerMaterial(val); }} />
-              {gstMode === 'individual' && (
-                <input type="text" placeholder="GST per Material" className="w-full p-2 border border-gray-300 rounded-md col-span-1" value={itemGST} onChange={e => setItemGST(e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'))} />
-              )}
+                <input type="text" pattern="\d*" placeholder="Number of Materials" className="w-full p-2 border border-gray-300 rounded-md" value={numMaterials} onChange={e => setNumMaterials(e.target.value.replace(/\D/g, ''))} />
+                <select className="w-full p-2 border border-gray-300 rounded-md" value={unit} onChange={e => setUnit(e.target.value)} disabled={!selectedMaterial}>
+                    <option value="">Select Unit</option>
+                    {unitOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+                <input type="text" placeholder="Cost Per Material" className="w-full p-2 border border-gray-300 rounded-md" value={costPerMaterial} onChange={e => { const val = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'); setCostPerMaterial(val); }} />
             </div>
+            {showConversionInput && (
+                <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Number of {baseUnit}s per {unit}</label>
+                    <input type="text" pattern="\d*" placeholder={`e.g., 50`} className="w-full p-2 border border-gray-300 rounded-md" value={itemsPerContainer} onChange={e => setItemsPerContainer(e.target.value.replace(/\D/g, ''))} />
+                </div>
+            )}
+            {gstMode === 'individual' && (
+                <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-600 mb-1">GST per Material</label>
+                    <input type="text" placeholder="GST per Material" className="w-full p-2 border border-gray-300 rounded-md" value={itemGST} onChange={e => setItemGST(e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1'))} />
+                </div>
+            )}
             <div>
                 <button type="button" onClick={handleAddItem} disabled={isAddItemDisabled} className={`w-full py-2 px-4 text-white font-semibold rounded-md transition-colors ${ isAddItemDisabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
                     {editingRecordId ? 'Update Item' : 'Add Item'}
@@ -2753,9 +2769,9 @@ function DataEntryForm({ user }) {
   );
 }
 
-// --- Bulk Add Modal Component [MODIFIED] ---
+// --- Bulk Add Modal Component ---
 function BulkAddModal({ data, onClose, onConfirm }) {
-    const { name, quantity, costPerItem, type, info, unit } = data;
+    const { name, quantity, costPerItem, type, info, unit, consumerUnit } = data;
     const [items, setItems] = useState(() => 
         Array.from({ length: quantity }, () => ({ serialNumber: '', modelNumber: '', productCondition: 'Good' }))
     );
@@ -2781,6 +2797,7 @@ function BulkAddModal({ data, onClose, onConfirm }) {
             info,
             quantity: 1,
             unit,
+            consumerUnit,
             cost: costPerItem,
             serialNumber: item.serialNumber,
             modelNumber: item.modelNumber,
@@ -2952,7 +2969,7 @@ function ExportModal({ onClose, exportToPDF, exportToDoc, exportToExcel }) {
     );
 }
 
-// --- Existing Items Tab (for Approver) [UPDATED] ---
+// --- Existing Items Tab (for Approver) ---
 function ExistingItemsTab() {
     const [returnableItems, setReturnableItems] = useState([]);
     const [nonReturnableItems, setNonReturnableItems] = useState([]);
@@ -3156,7 +3173,7 @@ function ApproverDashboard({ user, onLogout }) {
     );
 }
 
-// --- Annual Verification Tab (for Approver) [FIXED] ---
+// --- Annual Verification Tab (for Approver) ---
 function AnnualVerificationTab() {
     const [verificationRequests, setVerificationRequests] = useState([]);
     const [users, setUsers] = useState({});
@@ -3176,7 +3193,6 @@ function AnnualVerificationTab() {
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setVerificationRequests(requests);
-            // Initialize the approver conditions state
             const initialConditions = {};
             requests.forEach(req => {
                 req.items.forEach(item => {
@@ -3213,11 +3229,8 @@ function AnnualVerificationTab() {
     
         try {
             await runTransaction(db, async (transaction) => {
-                // --- READ PHASE ---
-                // First, read all the necessary distribution documents if the status is 'verified-changed'.
                 const distributionDocsToUpdate = new Map();
                 if (newStatus === 'verified-changed') {
-                    // Create a map of distribution IDs to the items that need updating within them.
                     const updatesByDocId = items.reduce((acc, item) => {
                         const finalCondition = approverConditions[item.id] || item.newCondition;
                         if (!acc[item.distributionId]) {
@@ -3227,7 +3240,6 @@ function AnnualVerificationTab() {
                         return acc;
                     }, {});
 
-                    // Asynchronously fetch all unique distribution documents that need updating.
                     const readPromises = Object.keys(updatesByDocId).map(distId => {
                         const distDocRef = doc(db, "distribution_requests", distId);
                         return transaction.get(distDocRef).then(docSnapshot => ({
@@ -3248,10 +3260,6 @@ function AnnualVerificationTab() {
                     });
                 }
     
-                // --- WRITE PHASE ---
-                // Now that all reads are done, we can proceed with writes.
-    
-                // 1. Update the main annual verification request.
                 const updatedItemsForRequest = items.map(item => {
                     const conditionChanged = approverConditions[item.id] && approverConditions[item.id] !== item.newCondition;
                     return {
@@ -3262,7 +3270,6 @@ function AnnualVerificationTab() {
                 });
                 transaction.update(verificationRequestRef, { status: newStatus, items: updatedItemsForRequest });
     
-                // 2. If necessary, update the related distribution documents.
                 if (newStatus === 'verified-changed') {
                     distributionDocsToUpdate.forEach(docInfo => {
                         const originalItems = docInfo.snapshot.data().items;
@@ -3442,11 +3449,10 @@ function CaseWorkerRequestTab() {
                         if (itemState.status === 'approved') anyApproved = true;
                         return { ...item, status: itemState.status, remarks: itemState.remarks || '' };
                     }
-                    allApproved = false; // An item was left pending
+                    allApproved = false;
                     return item;
                 });
                 
-                // Determine the overall status of the request
                 const finalStatus = allApproved ? 'approved' : anyApproved ? 'partially-approved' : 'rejected';
 
                 transaction.update(requestDocRef, { items: updatedItems, status: finalStatus });
@@ -3608,7 +3614,7 @@ function ConsumerRequestTab() {
                         if (itemState.status === 'approved') anyApproved = true;
                         return { ...item, status: itemState.status, remarks: itemState.remarks || '' };
                     }
-                    allApproved = false; // An item was left pending
+                    allApproved = false;
                     return item;
                 });
                 
@@ -3727,27 +3733,23 @@ function ConfirmationModal({ onConfirm, onCancel }) {
 }
 
 
-// --- Consumer Dashboard ---
+// --- Consumer Dashboard [FIXED with unit bug fix] ---
 function ConsumerDashboard({ user, onLogout }) {
     const [approvedStock, setApprovedStock] = useState([]);
     const [distributedStock, setDistributedStock] = useState([]);
     const [availableItems, setAvailableItems] = useState([]);
     const [approvalRequests, setApprovalRequests] = useState({});
     
-    // Form state
     const [selectedMaterial, setSelectedMaterial] = useState('');
     const [requiredQuantity, setRequiredQuantity] = useState('');
     const [editingRequestId, setEditingRequestId] = useState(null);
 
-    // List states
     const [localPendingRequests, setLocalPendingRequests] = useState([]);
     const [submittedRequests, setSubmittedRequests] = useState([]);
 
-    // UI state
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     
-    // Helper to format Firestore Timestamp to DD/MM/YYYY
     const formatDate = (timestamp) => {
         if (!timestamp) return 'N/A';
         const date = timestamp.toDate();
@@ -3763,7 +3765,6 @@ function ConsumerDashboard({ user, onLogout }) {
         return `${day}/${month}/${year}`;
     };
 
-    // Listener for all approval requests to get the bill date
     useEffect(() => {
         const q = query(collection(db, "approval_requests"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -3780,7 +3781,6 @@ function ConsumerDashboard({ user, onLogout }) {
         return unsubscribe;
     }, []);
 
-    // Listener for approved items from caseworkers
     useEffect(() => {
         const q = query(collection(db, "approval_requests"), where("status", "in", ["approved", "partially-approved"]));
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -3803,13 +3803,11 @@ function ConsumerDashboard({ user, onLogout }) {
         return unsubscribe;
     }, []);
 
-    // Listener for all distribution requests to calculate total distributed stock
     useEffect(() => {
         const q = query(collection(db, "distribution_requests"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const itemMap = new Map();
             snapshot.forEach(doc => {
-                // We count pending, approved, and collected towards distributed stock
                 if (doc.data().status !== 'rejected') {
                     doc.data().items.forEach(item => {
                         const quantity = parseInt(item.requiredQuantity, 10) || 0;
@@ -3827,7 +3825,6 @@ function ConsumerDashboard({ user, onLogout }) {
         return unsubscribe;
     }, []);
     
-    // Listener for the current user's distribution requests to manage UI state and lists
     useEffect(() => {
         if (!user) return;
         const q = query(collection(db, "distribution_requests"), where("consumerId", "==", user.uid));
@@ -3840,10 +3837,8 @@ function ConsumerDashboard({ user, onLogout }) {
         return unsubscribe;
     }, [user]);
     
-    // Listener for the user's local pending requests (before submission)
     useEffect(() => {
         if (!user) return;
-        // If there's already a submitted request, we don't need to listen to the local one.
         if (isSubmitted) {
             setLocalPendingRequests([]);
             return;
@@ -3857,7 +3852,6 @@ function ConsumerDashboard({ user, onLogout }) {
     }, [user, isSubmitted]);
 
 
-    // Recalculates the net available stock
     useEffect(() => {
         const netStockMap = new Map();
         approvedStock.forEach(item => {
@@ -3880,6 +3874,12 @@ function ConsumerDashboard({ user, onLogout }) {
         }
 
         const availableItem = availableItems.find(item => item.name === selectedMaterial);
+        
+        if (!availableItem) {
+            alert("Selected material details not found. Please try again.");
+            return;
+        }
+
         const pendingQty = localPendingRequests
             .filter(req => req.name === selectedMaterial && req.id !== editingRequestId)
             .reduce((sum, req) => sum + parseInt(req.requiredQuantity, 10), 0);
@@ -3897,6 +3897,7 @@ function ConsumerDashboard({ user, onLogout }) {
             status: 'Pending',
             type: availableItem.type,
             info: availableItem.info,
+            unit: availableItem.consumerUnit, // Use consumer unit
             serialNumber: availableItem.serialNumber || '',
             modelNumber: availableItem.modelNumber || ''
         };
@@ -4057,7 +4058,7 @@ function ConsumerDashboard({ user, onLogout }) {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Quantity Available</label>
-                                <input type="text" readOnly value={displayQty} className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
+                                <input type="text" readOnly value={`${displayQty} ${currentItem?.consumerUnit || ''}`} className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Required Quantity</label>
