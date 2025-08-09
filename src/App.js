@@ -575,6 +575,24 @@ function MasterDashboard({ user, userRole, onLogout }) {
             }
             return;
         }
+
+        if (newUserRole === 'messenger') {
+            try {
+                await addDoc(collection(db, "users"), {
+                    uniqueId,
+                    name,
+                    designation,
+                    role: 'messenger',
+                    email: null 
+                });
+                alert('Messenger created successfully.');
+                resetUserForm();
+            } catch (error) {
+                console.error("Error creating messenger:", error);
+                alert(`Failed to create messenger: ${error.message}`);
+            }
+            return;
+        }
         
         if (/\s/.test(newUsername)) {
             alert("Username cannot contain spaces.");
@@ -737,27 +755,6 @@ function MasterDashboard({ user, userRole, onLogout }) {
                                 <option value="add-new">Add New Designation...</option>
                             </select>
                         </div>
-                         <div className="flex items-center">
-                            <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Username</label>
-                            <span className="mx-2">:</span>
-                            <input type="text" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md" placeholder="No spaces allowed" readOnly={!!editingUserId} required />
-                        </div>
-                        {!editingUserId && (
-                            <>
-                                <div className="relative flex items-center">
-                                    <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Set Password</label>
-                                    <span className="mx-2">:</span>
-                                    <input type={showSetPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md pr-10" required />
-                                    <EyeIcon visible={showSetPassword} onClick={() => setShowSetPassword(!showSetPassword)} />
-                                </div>
-                                <div className="relative flex items-center">
-                                    <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Confirm Password</label>
-                                    <span className="mx-2">:</span>
-                                    <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md pr-10" required />
-                                    <EyeIcon visible={showConfirmPassword} onClick={() => setShowConfirmPassword(!showConfirmPassword)} />
-                                </div>
-                            </>
-                        )}
                         <div className="flex items-center">
                             <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Assign Role</label>
                             <span className="mx-2">:</span>
@@ -765,8 +762,34 @@ function MasterDashboard({ user, userRole, onLogout }) {
                                 <option value="consumer">Consumer</option>
                                 <option value="caseworker">Caseworker</option>
                                 <option value="approver">Approver</option>
+                                <option value="messenger">Messenger</option>
                             </select>
                         </div>
+                         {newUserRole !== 'messenger' && (
+                            <>
+                                <div className="flex items-center">
+                                    <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Username</label>
+                                    <span className="mx-2">:</span>
+                                    <input type="text" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md" placeholder="No spaces allowed" readOnly={!!editingUserId} required={newUserRole !== 'messenger'} />
+                                </div>
+                                {!editingUserId && (
+                                    <>
+                                        <div className="relative flex items-center">
+                                            <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Set Password</label>
+                                            <span className="mx-2">:</span>
+                                            <input type={showSetPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md pr-10" required={newUserRole !== 'messenger'} />
+                                            <EyeIcon visible={showSetPassword} onClick={() => setShowSetPassword(!showSetPassword)} />
+                                        </div>
+                                        <div className="relative flex items-center">
+                                            <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Confirm Password</label>
+                                            <span className="mx-2">:</span>
+                                            <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md pr-10" required={newUserRole !== 'messenger'} />
+                                            <EyeIcon visible={showConfirmPassword} onClick={() => setShowConfirmPassword(!showConfirmPassword)} />
+                                        </div>
+                                    </>
+                                )}
+                            </>
+                        )}
                         <div className="flex gap-4">
                             {editingUserId && (
                                 <button type="button" onClick={resetUserForm} className="w-full py-2 px-4 bg-gray-500 text-white font-semibold rounded-md hover:bg-gray-600">Cancel</button>
@@ -2083,12 +2106,25 @@ function ConsumerItemsReport() {
     );
 }
 
-
+// --- Confirmation Modal Component ---
+function ConfirmationModal({ onConfirm, onCancel, title, message }) {
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+            <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-sm">
+                <h2 className="text-xl font-bold mb-4 text-center">{title || "Confirm Action"}</h2>
+                <p className="text-center text-gray-600 mb-6">{message || "Are you sure you want to proceed?"}</p>
+                <div className="flex justify-center gap-4">
+                    <button onClick={onCancel} className="px-6 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button onClick={onConfirm} className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Confirm</button>
+                </div>
+            </div>
+        </div>
+    );
+}
 // --- Consumer Handover Component (for Caseworker) ---
 function ConsumerHandover() {
     const [itemsForHandover, setItemsForHandover] = useState([]);
     const [users, setUsers] = useState({});
-    const [messengerNames, setMessengerNames] = useState({});
     const [availableReturnableStock, setAvailableReturnableStock] = useState({});
     const [selectedSerials, setSelectedSerials] = useState({});
 
@@ -2108,12 +2144,15 @@ function ConsumerHandover() {
                 const request = { id: doc.id, ...doc.data() };
                 request.items.forEach((item, index) => {
                     if (item.status === 'approved') {
+                        const consumerInfo = users[request.consumerId] || {};
                         allItems.push({
                             ...item,
                             uniqueId: `${doc.id}-${index}`,
                             itemIndex: index,
                             requestId: request.id,
                             consumerId: request.consumerId,
+                            // Use the messengerName from the request, or default to the consumer's name
+                            messengerName: request.messengerName || consumerInfo.name,
                         });
                     }
                 });
@@ -2146,16 +2185,11 @@ function ConsumerHandover() {
     }, []);
 
     const handleItemUpdate = async (item, newStatus) => {
-        const { requestId, name, type, uniqueId, itemIndex } = item;
-        const messengerName = messengerNames[uniqueId] || '';
+        const { requestId, name, type, uniqueId, itemIndex, messengerName } = item;
         const selectedSerialInfo = selectedSerials[uniqueId] || {};
     
         if (type === 'Returnable' && newStatus === 'collected' && (!selectedSerialInfo.serialNumber || !selectedSerialInfo.modelNumber)) {
             alert("Please select a serial and model number for this returnable item.");
-            return;
-        }
-        if (newStatus === 'collected' && !messengerName) {
-            alert("Please enter the messenger's name before confirming collection.");
             return;
         }
     
@@ -2200,10 +2234,6 @@ function ConsumerHandover() {
             alert("Failed to update item status. Please try again.");
         }
     };
-    
-    const handleMessengerNameChange = (key, value) => {
-        setMessengerNames(prev => ({ ...prev, [key]: value }));
-    };
 
     const handleSerialChange = (key, value) => {
         const [serialNumber, modelNumber] = value.split('|');
@@ -2243,7 +2273,7 @@ function ConsumerHandover() {
                                         <td className="p-3">{item.name}</td>
                                         <td className="p-3">{item.requiredQuantity} {item.unit ? item.unit : ''}</td>
                                         <td className="p-3">
-                                            <input type="text" placeholder="Enter Name" className="w-full p-2 border border-gray-300 rounded-md" value={messengerNames[item.uniqueId] || ''} onChange={(e) => handleMessengerNameChange(item.uniqueId, e.target.value)} />
+                                            <div className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md">{item.messengerName || 'N/A'}</div>
                                         </td>
                                         <td className="p-3">
                                             <div className="flex gap-2">
@@ -2301,7 +2331,7 @@ function ConsumerHandover() {
                                             <input type="text" readOnly value={selectedSerials[item.uniqueId]?.modelNumber || ''} className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
                                         </td>
                                         <td className="p-3">
-                                            <input type="text" placeholder="Enter Name" className="w-full p-2 border border-gray-300 rounded-md" value={messengerNames[item.uniqueId] || ''} onChange={(e) => handleMessengerNameChange(item.uniqueId, e.target.value)} />
+                                            <div className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md">{item.messengerName || 'N/A'}</div>
                                         </td>
                                         <td className="p-3">
                                             <div className="flex gap-2">
@@ -2694,9 +2724,11 @@ function DataEntryForm({ user }) {
   return (
     <div className="flex flex-col lg:flex-row gap-8 h-full">
       {showConfirmModal && (
-          <ConfirmationModal
+<ConfirmationModal
               onConfirm={confirmAndSubmit}
               onCancel={() => setShowConfirmModal(false)}
+              title="Confirm Submission"
+              message="Are you sure you want to submit this procurement request for approval?"
           />
       )}
       {isBulkAddModalOpen && (
@@ -3822,16 +3854,42 @@ function ConsumerRequestTab() {
     );
 }
 
-// --- Confirmation Modal Component ---
-function ConfirmationModal({ onConfirm, onCancel }) {
+// --- Submit Request Modal (for Consumer) ---
+function SubmitRequestModal({ onConfirm, onCancel, messengers, consumerName }) {
+    const [selectedMessenger, setSelectedMessenger] = useState(consumerName || '');
+
+    const handleSubmit = () => {
+        if (!selectedMessenger) {
+            alert("Please select a messenger.");
+            return;
+        }
+        onConfirm(selectedMessenger);
+    };
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
             <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-sm">
                 <h2 className="text-xl font-bold mb-4 text-center">Confirm Submission</h2>
-                <p className="text-center text-gray-600 mb-6">Are you sure you want to submit this request? Once submitted, you cannot edit or delete the items.</p>
+                <p className="text-center text-gray-600 mb-6">Please select who will be collecting the items.</p>
+                
+                <div className="mb-6">
+                    <label htmlFor="messenger" className="block text-sm font-medium text-gray-700 mb-1">Collector's Name</label>
+                    <select
+                        id="messenger"
+                        value={selectedMessenger}
+                        onChange={(e) => setSelectedMessenger(e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                    >
+                        {consumerName && <option value={consumerName}>{consumerName} (Myself)</option>}
+                        {messengers.map(m => (
+                            <option key={m.id} value={m.name}>{m.name}</option>
+                        ))}
+                    </select>
+                </div>
+
                 <div className="flex justify-center gap-4">
                     <button onClick={onCancel} className="px-6 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
-                    <button onClick={onConfirm} className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Confirm</button>
+                    <button onClick={handleSubmit} className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Confirm</button>
                 </div>
             </div>
         </div>
@@ -3855,6 +3913,8 @@ function ConsumerDashboard({ user, onLogout }) {
 
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [messengers, setMessengers] = useState([]);
+    const [consumerName, setConsumerName] = useState('');
     
     const formatDate = (timestamp) => {
         if (!timestamp) return 'N/A';
@@ -3914,8 +3974,10 @@ function ConsumerDashboard({ user, onLogout }) {
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const itemMap = new Map();
             snapshot.forEach(doc => {
-                if (doc.data().status !== 'rejected') {
-                    doc.data().items.forEach(item => {
+                doc.data().items.forEach(item => {
+                    // Only count items that are NOT rejected. These are items that are currently
+                    // "reserved" from the main stock pool (pending, approved, or collected).
+                    if (item.status !== 'rejected') {
                         const quantity = parseInt(item.requiredQuantity, 10) || 0;
                         if (itemMap.has(item.name)) {
                             const existing = itemMap.get(item.name);
@@ -3923,8 +3985,8 @@ function ConsumerDashboard({ user, onLogout }) {
                         } else {
                             itemMap.set(item.name, { name: item.name, quantity });
                         }
-                    });
-                }
+                    }
+                });
             });
             setDistributedStock(Array.from(itemMap.values()));
         });
@@ -3933,14 +3995,36 @@ function ConsumerDashboard({ user, onLogout }) {
     
     useEffect(() => {
         if (!user) return;
-        const q = query(collection(db, "distribution_requests"), where("consumerId", "==", user.uid));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+
+        // Fetch user's own requests
+        const requestsQuery = query(collection(db, "distribution_requests"), where("consumerId", "==", user.uid));
+        const unsubscribeRequests = onSnapshot(requestsQuery, (snapshot) => {
             const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setSubmittedRequests(requests);
             const hasPending = requests.some(req => req.status === 'pending');
             setIsSubmitted(hasPending);
         });
-        return unsubscribe;
+
+        // Fetch messengers
+        const messengersQuery = query(collection(db, "users"), where("role", "==", "messenger"));
+        const unsubscribeMessengers = onSnapshot(messengersQuery, (snapshot) => {
+            const messengerList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setMessengers(messengerList);
+        });
+
+        // Fetch current consumer's name
+        const userDocRef = doc(db, 'users', user.uid);
+        const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
+            if (doc.exists()) {
+                setConsumerName(doc.data().name);
+            }
+        });
+
+        return () => {
+            unsubscribeRequests();
+            unsubscribeMessengers();
+            unsubscribeUser();
+        };
     }, [user]);
     
     useEffect(() => {
@@ -4040,7 +4124,7 @@ function ConsumerDashboard({ user, onLogout }) {
         }
     };
 
-    const handleFinalSubmit = async () => {
+    const handleFinalSubmit = () => {
         if (localPendingRequests.length === 0) {
             alert("Please add at least one item to the list before submitting.");
             return;
@@ -4048,11 +4132,12 @@ function ConsumerDashboard({ user, onLogout }) {
         setShowConfirmModal(true);
     };
 
-    const confirmSubmit = async () => {
+    const confirmSubmit = async (messengerName) => {
         try {
             await addDoc(collection(db, 'distribution_requests'), {
                 consumerId: user.uid,
                 consumerEmail: user.email,
+                messengerName: messengerName, // Add messenger name here
                 items: localPendingRequests.map(({id, ...rest}) => rest),
                 status: 'pending',
                 submittedAt: serverTimestamp(),
@@ -4067,10 +4152,10 @@ function ConsumerDashboard({ user, onLogout }) {
             await Promise.all(deletePromises);
 
             alert("Distribution request sent for approval!");
-            setShowConfirmModal(false);
         } catch (error) {
             console.error("Error sending distribution request: ", error);
             alert("Failed to send request. Please try again.");
+        } finally {
             setShowConfirmModal(false);
         }
     };
@@ -4142,7 +4227,12 @@ function ConsumerDashboard({ user, onLogout }) {
 
     return (
         <div className="flex flex-col h-screen p-4 md:p-8">
-            {showConfirmModal && <ConfirmationModal onConfirm={confirmSubmit} onCancel={() => setShowConfirmModal(false)} />}
+            {showConfirmModal && <SubmitRequestModal 
+                onConfirm={confirmSubmit} 
+                onCancel={() => setShowConfirmModal(false)}
+                messengers={messengers}
+                consumerName={consumerName}
+            />}
             <header className="flex-shrink-0 flex justify-between items-center mb-8">
                 <h1 className="text-3xl font-bold text-gray-800">Consumer Portal</h1>
                 <div className="flex items-center gap-4">
