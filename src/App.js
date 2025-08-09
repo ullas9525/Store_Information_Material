@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 // Import Firebase core and specific services.
 import { initializeApp, deleteApp } from 'firebase/app';
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, EmailAuthProvider, reauthenticateWithCredential, updatePassword, updateEmail } from 'firebase/auth';
 import { getFirestore, doc, getDoc, collection, addDoc, onSnapshot, serverTimestamp, updateDoc, deleteDoc, query, where, getDocs, setDoc, runTransaction } from 'firebase/firestore';
 
 // --- IMPORTANT ---
@@ -90,13 +90,14 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const handleLogin = async (email, password) => {
+  const handleLogin = async (username, password) => {
     setError('');
     setLoading(true);
+    const email = `${username}@gmail.com`; // Append @gmail.com
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
-      setError('Failed to login. Please check your email and password.');
+      setError('Failed to login. Please check your username and password.');
       console.error("Login Error:", error);
       setLoading(false);
     }
@@ -109,13 +110,13 @@ export default function App() {
   const renderDashboard = () => {
     switch (userRole) {
       case 'master':
-        return <MasterDashboard user={user} onLogout={handleLogout} />;
+        return <MasterDashboard user={user} userRole={userRole} onLogout={handleLogout} />;
       case 'caseworker':
-        return <CaseworkerDashboard user={user} onLogout={handleLogout} />;
+        return <CaseworkerDashboard user={user} userRole={userRole} onLogout={handleLogout} />;
       case 'approver':
-        return <ApproverDashboard user={user} onLogout={handleLogout} />;
+        return <ApproverDashboard user={user} userRole={userRole} onLogout={handleLogout} />;
       case 'consumer':
-        return <ConsumerDashboard user={user} onLogout={handleLogout} />;
+        return <ConsumerDashboard user={user} userRole={userRole} onLogout={handleLogout} />;
       default:
         if (user) {
             return (
@@ -154,13 +155,13 @@ const EyeIcon = ({ visible, onClick }) => (
 
 // --- Login Component ---
 function Login({ onLogin, error }) {
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onLogin(email, password);
+        onLogin(username, password);
     };
 
     return (
@@ -169,8 +170,8 @@ function Login({ onLogin, error }) {
                 <h2 className="text-3xl font-bold text-center text-gray-900">Sign In</h2>
                 <form className="space-y-6" onSubmit={handleSubmit}>
                     <div>
-                        <label htmlFor="email" className="text-sm font-medium text-gray-700">Email address</label>
-                        <input id="email" name="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="you@example.com" />
+                        <label htmlFor="username" className="text-sm font-medium text-gray-700">Username</label>
+                        <input id="username" name="username" type="text" autoComplete="username" required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="your-username" />
                     </div>
                     <div className="relative flex items-center h-12">
                         <label htmlFor="password" className="text-sm font-medium text-gray-700 absolute left-0 top-0 mt-[-1.5rem]">Password</label>
@@ -267,6 +268,92 @@ function ChangePasswordModal({ user, onClose }) {
     );
 }
 
+// --- Change Username Modal [NEW] ---
+function ChangeUsernameModal({ user, onClose }) {
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newUsername, setNewUsername] = useState('');
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+
+    const handleChangeUsername = async (e) => {
+        e.preventDefault();
+        setError('');
+        setSuccess('');
+
+        if (!newUsername.trim() || /\s/.test(newUsername)) {
+            setError("Please enter a valid username without spaces.");
+            return;
+        }
+
+        if (!user) {
+            setError("No user is signed in.");
+            return;
+        }
+
+        try {
+            // Re-authenticate user before sensitive operation
+            const credential = EmailAuthProvider.credential(user.email, currentPassword);
+            await reauthenticateWithCredential(user, credential);
+
+            // Update email (username) in Firebase Auth
+            const newEmail = `${newUsername.trim()}@gmail.com`;
+            await updateEmail(user, newEmail);
+
+            // Update email in Firestore
+            const userDocRef = doc(db, 'users', user.uid);
+            await updateDoc(userDocRef, { email: newEmail });
+            
+            setSuccess("Username updated successfully!");
+            setTimeout(() => {
+                onClose();
+            }, 2000);
+
+        } catch (error) {
+            console.error("Username Change Error:", error);
+            if (error.code === 'auth/wrong-password') {
+                setError("Incorrect password. Please try again.");
+            } else if (error.code === 'auth/email-already-in-use') {
+                setError("This username is already taken.");
+            } else {
+                setError("Failed to change username.");
+            }
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+            <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+                <h2 className="text-2xl font-bold mb-6">Change Username</h2>
+                <form onSubmit={handleChangeUsername} className="space-y-4">
+                    <input
+                        type="password"
+                        placeholder="Current Password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        className="w-full p-2 border rounded-md"
+                        required
+                    />
+                    <input
+                        type="text"
+                        placeholder="New Username (no spaces)"
+                        value={newUsername}
+                        onChange={(e) => setNewUsername(e.target.value)}
+                        className="w-full p-2 border rounded-md"
+                        required
+                    />
+                    {error && <p className="text-red-500 text-sm">{error}</p>}
+                    {success && <p className="text-green-500 text-sm">{success}</p>}
+                    <div className="flex justify-end gap-4 pt-4">
+                        <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400">Cancel</button>
+                        <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Update Username</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+
 // --- Logout Confirmation Modal ---
 function LogoutConfirmationModal({ onConfirm, onCancel }) {
     return (
@@ -283,10 +370,11 @@ function LogoutConfirmationModal({ onConfirm, onCancel }) {
     );
 }
 
-// --- Settings Button and Dropdown ---
-function SettingsButton({ user, onLogout }) {
+// --- Settings Button and Dropdown [UPDATED for Master Role] ---
+function SettingsButton({ user, userRole, onLogout }) {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false); // New state
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
     const dropdownRef = useRef(null);
 
@@ -313,6 +401,17 @@ function SettingsButton({ user, onLogout }) {
 
             {isDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 py-1">
+                    {userRole === 'master' && ( // Conditionally render for master
+                        <button
+                            onClick={() => {
+                                setIsUsernameModalOpen(true);
+                                setIsDropdownOpen(false);
+                            }}
+                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                            Change Username
+                        </button>
+                    )}
                     <button
                         onClick={() => {
                             setIsPasswordModalOpen(true);
@@ -334,6 +433,7 @@ function SettingsButton({ user, onLogout }) {
                 </div>
             )}
 
+            {isUsernameModalOpen && <ChangeUsernameModal user={user} onClose={() => setIsUsernameModalOpen(false)} />}
             {isPasswordModalOpen && <ChangePasswordModal user={user} onClose={() => setIsPasswordModalOpen(false)} />}
             {isLogoutModalOpen && <LogoutConfirmationModal onConfirm={onLogout} onCancel={() => setIsLogoutModalOpen(false)} />}
         </div>
@@ -384,13 +484,13 @@ function AddDesignationModal({ onClose, onAddDesignation }) {
 }
 
 
-// --- Master Dashboard Component ---
-function MasterDashboard({ user, onLogout }) {
+// --- Master Dashboard Component [UPDATED for Username] ---
+function MasterDashboard({ user, userRole, onLogout }) {
     const [users, setUsers] = useState([]);
     const [uniqueId, setUniqueId] = useState('');
     const [name, setName] = useState('');
     const [designation, setDesignation] = useState('');
-    const [newUserEmail, setNewUserEmail] = useState('');
+    const [newUsername, setNewUsername] = useState(''); // Changed from newUserEmail
     const [newUserRole, setNewUserRole] = useState('consumer');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -452,7 +552,7 @@ function MasterDashboard({ user, onLogout }) {
         setUniqueId('');
         setName('');
         setDesignation('');
-        setNewUserEmail('');
+        setNewUsername('');
         setPassword('');
         setConfirmPassword('');
         setNewUserRole('consumer');
@@ -475,12 +575,18 @@ function MasterDashboard({ user, onLogout }) {
             }
             return;
         }
+        
+        if (/\s/.test(newUsername)) {
+            alert("Username cannot contain spaces.");
+            return;
+        }
 
         if (password !== confirmPassword) {
             alert("Passwords do not match.");
             return;
         }
 
+        const newUserEmail = `${newUsername}@gmail.com`;
         const tempAppName = `temp-app-${Date.now()}`;
         const tempApp = initializeApp(firebaseConfig, tempAppName);
         const tempAuth = getAuth(tempApp);
@@ -493,7 +599,7 @@ function MasterDashboard({ user, onLogout }) {
                 uniqueId, name, designation, email: newUserEmail, role: newUserRole
             });
 
-            alert(`User ${newUserEmail} created successfully.`);
+            alert(`User ${newUsername} created successfully.`);
             resetUserForm();
 
         } catch (error) {
@@ -521,7 +627,7 @@ function MasterDashboard({ user, onLogout }) {
         setUniqueId(userToEdit.uniqueId || '');
         setName(userToEdit.name || '');
         setDesignation(userToEdit.designation || '');
-        setNewUserEmail(userToEdit.email || '');
+        setNewUsername(userToEdit.email ? userToEdit.email.split('@')[0] : '');
         setNewUserRole(userToEdit.role || 'consumer');
     };
     
@@ -597,8 +703,8 @@ function MasterDashboard({ user, onLogout }) {
             <header className="flex-shrink-0 flex justify-between items-center mb-8">
                 <h1 className="text-3xl font-bold text-gray-800">Master Portal</h1>
                 <div className="flex items-center gap-4">
-                    <span className="text-gray-600">{user.email}</span>
-                    <SettingsButton user={user} onLogout={onLogout} />
+                    <span className="text-gray-600">{user.email ? user.email.split('@')[0] : ''}</span>
+                    <SettingsButton user={user} userRole={userRole} onLogout={onLogout} />
                 </div>
             </header>
             <main className="flex-grow grid grid-cols-1 lg:grid-cols-2 gap-8 overflow-hidden">
@@ -632,9 +738,9 @@ function MasterDashboard({ user, onLogout }) {
                             </select>
                         </div>
                          <div className="flex items-center">
-                            <label className="w-28 text-sm font-medium text-gray-600 shrink-0">User Email</label>
+                            <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Username</label>
                             <span className="mx-2">:</span>
-                            <input type="email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md" readOnly={!!editingUserId} required />
+                            <input type="text" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md" placeholder="No spaces allowed" readOnly={!!editingUserId} required />
                         </div>
                         {!editingUserId && (
                             <>
@@ -678,7 +784,7 @@ function MasterDashboard({ user, onLogout }) {
                                    <th className="p-3 text-base font-semibold text-gray-600">ID</th>
                                    <th className="p-3 text-base font-semibold text-gray-600">Name</th>
                                    <th className="p-3 text-base font-semibold text-gray-600">Designation</th>
-                                   <th className="p-3 text-base font-semibold text-gray-600">Email</th>
+                                   <th className="p-3 text-base font-semibold text-gray-600">Username</th>
                                    <th className="p-3 text-base font-semibold text-gray-600">Role</th>
                                    <th className="p-3 text-base font-semibold text-gray-600">Action</th>
                                </tr>
@@ -689,7 +795,7 @@ function MasterDashboard({ user, onLogout }) {
                                        <td className="p-3 text-sm">{u.uniqueId || 'N/A'}</td>
                                        <td className="p-3 text-sm">{u.name || 'N/A'}</td>
                                        <td className="p-3 text-sm">{u.designation || 'N/A'}</td>
-                                       <td className="p-3 text-sm">{u.email || 'N/A'}</td>
+                                       <td className="p-3 text-sm">{u.email ? u.email.split('@')[0] : 'N/A'}</td>
                                        <td className="p-3 capitalize text-sm">{u.role || 'N/A'}</td>
                                        <td className="p-3 flex gap-2">
                                            <button onClick={() => handleEditUserClick(u)} className="text-sm px-2 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200">Edit</button>
@@ -835,7 +941,7 @@ function MasterDashboard({ user, onLogout }) {
 }
 
 // --- Caseworker Dashboard Component ---
-function CaseworkerDashboard({ user, onLogout }) {
+function CaseworkerDashboard({ user, userRole, onLogout }) {
   const [activeTab, setActiveTab] = useState('dataEntry');
   const NavTab = ({ tabId, children }) => (
     <button onClick={() => setActiveTab(tabId)} className={`px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 ${ activeTab === tabId ? 'bg-indigo-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200'}`}>
@@ -860,8 +966,8 @@ function CaseworkerDashboard({ user, onLogout }) {
       <header className="flex-shrink-0 flex flex-col md:flex-row justify-between items-center mb-6">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4 md:mb-0">Caseworker Portal</h1>
         <div className="flex items-center gap-4">
-          <span className="text-gray-600 text-sm md:text-base">{user.email}</span>
-          <SettingsButton user={user} onLogout={onLogout} />
+          <span className="text-gray-600 text-sm md:text-base">{user.email ? user.email.split('@')[0] : ''}</span>
+          <SettingsButton user={user} userRole={userRole} onLogout={onLogout} />
         </div>
       </header>
       <nav className="flex-shrink-0 mb-8 flex flex-wrap gap-2 p-2 bg-gray-100 rounded-lg">
@@ -2215,7 +2321,7 @@ function ConsumerHandover() {
 }
 
 
-// --- Data Entry Form Component [FIXED with consumerUnit] ---
+// --- Data Entry Form Component ---
 function DataEntryForm({ user }) {
   const [vendorName, setVendorName] = useState('');
   const [vendorPhone, setVendorPhone] = useState('');
@@ -2373,7 +2479,7 @@ function DataEntryForm({ user }) {
       info: currentMaterialDetails.info,
       quantity: totalQuantity,
       unit: baseUnit,
-      consumerUnit: currentMaterialDetails.consumerUnit, // <-- FIX: Add consumerUnit here
+      consumerUnit: currentMaterialDetails.consumerUnit,
       cost: totalCost.toFixed(2),
       ...(gstMode === 'individual' && { gst: (parseFloat(itemGST || 0) * quantityOfContainers).toFixed(2) }),
     };
@@ -3123,7 +3229,7 @@ function ExistingItemsTab() {
 
 
 // --- Approver Dashboard ---
-function ApproverDashboard({ user, onLogout }) {
+function ApproverDashboard({ user, userRole, onLogout }) {
     const [activeTab, setActiveTab] = useState('careWorkerRequest');
 
     const NavTab = ({ tabId, children }) => (
@@ -3154,8 +3260,8 @@ function ApproverDashboard({ user, onLogout }) {
             <header className="flex-shrink-0 flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-800">Approval Portal</h1>
                 <div className="flex items-center gap-4">
-                    <span className="text-gray-600">{user.email}</span>
-                    <SettingsButton user={user} onLogout={onLogout} />
+                    <span className="text-gray-600">{user.email ? user.email.split('@')[0] : ''}</span>
+                    <SettingsButton user={user} userRole={userRole} onLogout={onLogout} />
                 </div>
             </header>
             <nav className="flex-shrink-0 border-b border-gray-200">
@@ -3731,6 +3837,7 @@ function ConfirmationModal({ onConfirm, onCancel }) {
         </div>
     );
 }
+
 
 
 // --- Consumer Dashboard [FIXED with unit bug fix] ---
