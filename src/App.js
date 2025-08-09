@@ -777,9 +777,9 @@ function MasterDashboard({ user, userRole, onLogout }) {
                         </div>
                     </form>
                     <hr className="my-6"/>
-                    <div className="flex-grow overflow-y-auto">
+                    <div className="flex-grow overflow-y-auto max-h-96 border rounded-md">
                         <table className="w-full text-left">
-                           <thead>
+                           <thead className="sticky top-0 bg-gray-100">
                                <tr className="bg-gray-100">
                                    <th className="p-3 text-base font-semibold text-gray-600">ID</th>
                                    <th className="p-3 text-base font-semibold text-gray-600">Name</th>
@@ -3837,7 +3837,6 @@ function ConfirmationModal({ onConfirm, onCancel }) {
         </div>
     );
 }
-
 
 
 // --- Consumer Dashboard [FIXED with unit bug fix] ---
