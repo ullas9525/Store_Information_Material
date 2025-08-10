@@ -136,8 +136,9 @@ export default function App() {
 
 // --- Password Visibility Toggle Icon ---
 const EyeIcon = ({ visible, onClick }) => (
-    <button type="button" onClick={onClick} className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5">
-        {visible ? (
+    <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+        <button type="button" onClick={onClick} className="p-1">
+            {visible ? (
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
                 <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.022 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
@@ -149,15 +150,51 @@ const EyeIcon = ({ visible, onClick }) => (
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 2l20 20" />
             </svg>
         )}
-    </button>
+        </button>
+    </div>
 );
-
 
 // --- Login Component ---
 function Login({ onLogin, error }) {
+    const [uniqueId, setUniqueId] = useState('');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const debounceTimeout = useRef(null);
+
+    useEffect(() => {
+        if (debounceTimeout.current) {
+            clearTimeout(debounceTimeout.current);
+        }
+
+        if (uniqueId.trim() !== '') {
+            debounceTimeout.current = setTimeout(async () => {
+                try {
+                    const q = query(collection(db, "users"), where("uniqueId", "==", uniqueId.trim()));
+                    const querySnapshot = await getDocs(q);
+
+                    if (!querySnapshot.empty) {
+                        const userDoc = querySnapshot.docs[0].data();
+                        if (userDoc.email) {
+                            setUsername(userDoc.email.split('@')[0]);
+                        }
+                    } else {
+                        setUsername('');
+                    }
+                } catch (err) {
+                    console.error("Error fetching user by UID:", err);
+                }
+            }, 300); 
+        } else {
+            setUsername('');
+        }
+
+        return () => {
+            if (debounceTimeout.current) {
+                clearTimeout(debounceTimeout.current);
+            }
+        };
+    }, [uniqueId]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -170,13 +207,27 @@ function Login({ onLogin, error }) {
                 <h2 className="text-3xl font-bold text-center text-gray-900">Sign In</h2>
                 <form className="space-y-6" onSubmit={handleSubmit}>
                     <div>
+                        <label htmlFor="uniqueId" className="text-sm font-medium text-gray-700">Unique ID</label>
+                        <input 
+                                id="uniqueId" 
+                                name="uniqueId" 
+                                type="text" 
+                                value={uniqueId} 
+                                onChange={(e) => setUniqueId(e.target.value)} 
+                                className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" 
+                                placeholder="Enter your UID" 
+                            />
+                    </div>
+                    <div>
                         <label htmlFor="username" className="text-sm font-medium text-gray-700">Username</label>
                         <input id="username" name="username" type="text" autoComplete="username" required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="your-username" />
                     </div>
-                    <div className="relative flex items-center h-12">
-                        <label htmlFor="password" className="text-sm font-medium text-gray-700 absolute left-0 top-0 mt-[-1.5rem]">Password</label>
-                        <input id="password" name="password" type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 pr-12" placeholder="••••••••" />
-                        <EyeIcon visible={showPassword} onClick={() => setShowPassword(!showPassword)} />
+                    <div className="relative">
+                        <label htmlFor="password" className="text-sm font-medium text-gray-700">Password</label>
+                        <div className="relative mt-1">
+                          <input id="password" name="password" type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 pr-12" placeholder="••••••••" />
+                          <EyeIcon visible={showPassword} onClick={() => setShowPassword(!showPassword)} />
+                        </div>
                     </div>
                     {error && <p className="text-sm text-red-600 text-center">{error}</p>}
                     <div>
@@ -189,7 +240,6 @@ function Login({ onLogin, error }) {
         </div>
     );
 }
-
 // --- Change Password Modal ---
 function ChangePasswordModal({ user, onClose }) {
     const [oldPassword, setOldPassword] = useState('');
@@ -370,6 +420,13 @@ function LogoutConfirmationModal({ onConfirm, onCancel }) {
     );
 }
 
+// --- Date Formatting Helper ---
+const formatDate = (dateString) => {
+    if (!dateString) return null;
+    const [year, month, day] = dateString.split('-');
+    return `${day}/${month}/${year}`;
+};
+
 // --- Settings Button and Dropdown [UPDATED for Master Role] ---
 function SettingsButton({ user, userRole, onLogout }) {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -489,6 +546,8 @@ function MasterDashboard({ user, userRole, onLogout }) {
     const [users, setUsers] = useState([]);
     const [uniqueId, setUniqueId] = useState('');
     const [name, setName] = useState('');
+    const [dateOfBirth, setDateOfBirth] = useState('');
+    const [phoneNumber, setPhoneNumber] = useState('');
     const [designation, setDesignation] = useState('');
     const [newUsername, setNewUsername] = useState(''); // Changed from newUserEmail
     const [newUserRole, setNewUserRole] = useState('consumer');
@@ -551,6 +610,8 @@ function MasterDashboard({ user, userRole, onLogout }) {
     const resetUserForm = () => {
         setUniqueId('');
         setName('');
+        setDateOfBirth('');
+        setPhoneNumber('');
         setDesignation('');
         setNewUsername('');
         setPassword('');
@@ -562,8 +623,13 @@ function MasterDashboard({ user, userRole, onLogout }) {
     const handleUserFormSubmit = async (e) => {
         e.preventDefault();
 
+        if (phoneNumber.length !== 10) {
+            alert("Phone number must be exactly 10 digits.");
+            return;
+        }
+
         if (editingUserId) {
-            const updatedDetails = { uniqueId, name, designation, role: newUserRole };
+            const updatedDetails = { uniqueId, name, dateOfBirth, phoneNumber, designation, role: newUserRole };
             try {
                 const userDocRef = doc(db, 'users', editingUserId);
                 await updateDoc(userDocRef, updatedDetails);
@@ -594,6 +660,11 @@ function MasterDashboard({ user, userRole, onLogout }) {
             return;
         }
         
+        if (phoneNumber.length !== 10) {
+            alert("Phone number must be exactly 10 digits.");
+            return;
+        }
+        
         if (/\s/.test(newUsername)) {
             alert("Username cannot contain spaces.");
             return;
@@ -614,9 +685,9 @@ function MasterDashboard({ user, userRole, onLogout }) {
             const newUser = userCredential.user;
 
             await setDoc(doc(db, "users", newUser.uid), {
-                uniqueId, name, designation, email: newUserEmail, role: newUserRole
+                uniqueId, name, dateOfBirth, phoneNumber, designation, email: newUserEmail, role: newUserRole
             });
-
+            
             alert(`User ${newUsername} created successfully.`);
             resetUserForm();
 
@@ -644,6 +715,8 @@ function MasterDashboard({ user, userRole, onLogout }) {
         setEditingUserId(userToEdit.id);
         setUniqueId(userToEdit.uniqueId || '');
         setName(userToEdit.name || '');
+        setDateOfBirth(userToEdit.dateOfBirth || '');
+        setPhoneNumber(userToEdit.phoneNumber || '');
         setDesignation(userToEdit.designation || '');
         setNewUsername(userToEdit.email ? userToEdit.email.split('@')[0] : '');
         setNewUserRole(userToEdit.role || 'consumer');
@@ -728,69 +801,99 @@ function MasterDashboard({ user, userRole, onLogout }) {
             <main className="flex-grow grid grid-cols-1 lg:grid-cols-2 gap-8 overflow-hidden">
                 <div className="bg-white p-6 rounded-lg shadow-md flex flex-col">
                     <h2 className="text-2xl font-semibold mb-4">{editingUserId ? 'Edit User' : 'Create & Manage Users'}</h2>
-                    <form onSubmit={handleUserFormSubmit} className="space-y-4">
-                        <div className="flex items-center">
-                            <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Unique ID</label>
-                            <span className="mx-2">:</span>
-                            <input type="text" value={uniqueId} onChange={(e) => setUniqueId(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md" required />
+                    <form onSubmit={handleUserFormSubmit} className="space-y-6">
+                        {/* Top two-column grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Unique ID</label>
+                                <input type="text" value={uniqueId} onChange={(e) => setUniqueId(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" required />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Name</label>
+                                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" required />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
+                                <input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" required />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                                <input 
+                                    type="text" 
+                                    value={phoneNumber} 
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/\D/g, '');
+                                        if (val.length <= 10) { setPhoneNumber(val); }
+                                    }} 
+                                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md" 
+                                    placeholder="10-digit number"
+                                    required 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Designation</label>
+                                <select value={designation} onChange={(e) => {
+                                    if (e.target.value === "add-new") {
+                                        setIsAddDesignationModalOpen(true);
+                                        setDesignation('');
+                                    } else {
+                                        setDesignation(e.target.value);
+                                    }
+                                }} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                                    <option value="">Select Designation</option>
+                                    {designations.map((d, index) => <option key={index} value={d.name}>{d.name}</option>)}
+                                    <option value="add-new">Add New Designation...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Assign Role</label>
+                                <select value={newUserRole} onChange={(e) => setNewUserRole(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                    <option value="consumer">Consumer</option>
+                                    <option value="caseworker">Caseworker</option>
+                                    <option value="approver">Approver</option>
+                                    <option value="messenger">Messenger</option>
+                                </select>
+                            </div>
                         </div>
-                        <div className="flex items-center">
-                            <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Name</label>
-                            <span className="mx-2">:</span>
-                            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md" required />
-                        </div>
-                        <div className="flex items-center">
-                            <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Designation</label>
-                            <span className="mx-2">:</span>
-                            <select value={designation} onChange={(e) => {
-                                if (e.target.value === "add-new") {
-                                    setIsAddDesignationModalOpen(true);
-                                    setDesignation('');
-                                } else {
-                                    setDesignation(e.target.value);
-                                }
-                            }} className="flex-grow p-2 border border-gray-300 rounded-md" required>
-                                <option value="">Select Designation</option>
-                                {designations.map((d, index) => <option key={index} value={d.name}>{d.name}</option>)}
-                                <option value="add-new">Add New Designation...</option>
-                            </select>
-                        </div>
-                        <div className="flex items-center">
-                            <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Assign Role</label>
-                            <span className="mx-2">:</span>
-                            <select value={newUserRole} onChange={(e) => setNewUserRole(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md">
-                                <option value="consumer">Consumer</option>
-                                <option value="caseworker">Caseworker</option>
-                                <option value="approver">Approver</option>
-                                <option value="messenger">Messenger</option>
-                            </select>
-                        </div>
-                         {newUserRole !== 'messenger' && (
-                            <>
-                                <div className="flex items-center">
-                                    <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Username</label>
-                                    <span className="mx-2">:</span>
-                                    <input type="text" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md" placeholder="No spaces allowed" readOnly={!!editingUserId} required={newUserRole !== 'messenger'} />
+
+                        {/* Bottom three-column grid for username and passwords */}
+                        {newUserRole !== 'messenger' && !editingUserId && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 pt-2">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Username</label>
+                                    <div className="mt-1 relative">
+                                        <input type="text" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="block w-full p-2 border border-gray-300 rounded-md" placeholder="No spaces allowed" required />
+                                    </div>
                                 </div>
-                                {!editingUserId && (
-                                    <>
-                                        <div className="relative flex items-center">
-                                            <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Set Password</label>
-                                            <span className="mx-2">:</span>
-                                            <input type={showSetPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md pr-10" required={newUserRole !== 'messenger'} />
-                                            <EyeIcon visible={showSetPassword} onClick={() => setShowSetPassword(!showSetPassword)} />
-                                        </div>
-                                        <div className="relative flex items-center">
-                                            <label className="w-28 text-sm font-medium text-gray-600 shrink-0">Confirm Password</label>
-                                            <span className="mx-2">:</span>
-                                            <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md pr-10" required={newUserRole !== 'messenger'} />
-                                            <EyeIcon visible={showConfirmPassword} onClick={() => setShowConfirmPassword(!showConfirmPassword)} />
-                                        </div>
-                                    </>
-                                )}
-                            </>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Set Password</label>
+                                    <div className="mt-1 relative">
+                                        <input type={showSetPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="block w-full p-2 border border-gray-300 rounded-md pr-10" required />
+                                        <EyeIcon visible={showSetPassword} onClick={() => setShowSetPassword(!showSetPassword)} />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
+                                    <div className="mt-1 relative">
+                                        <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="block w-full p-2 border border-gray-300 rounded-md pr-10" required />
+                                        <EyeIcon visible={showConfirmPassword} onClick={() => setShowConfirmPassword(!showConfirmPassword)} />
+                                    </div>
+                                </div>
+                            </div>
                         )}
-                        <div className="flex gap-4">
+                        
+                        {/* Special case for editing a user (Username only) */}
+                        {newUserRole !== 'messenger' && editingUserId && (
+                             <div className="pt-2">
+                                <label className="block text-sm font-medium text-gray-700">Username</label>
+                                <div className="mt-1 relative">
+                                    <input type="text" value={newUsername} readOnly className="block w-full p-2 border border-gray-300 rounded-md bg-gray-100" />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Buttons */}
+                        <div className="flex gap-4 pt-4">
                             {editingUserId && (
                                 <button type="button" onClick={resetUserForm} className="w-full py-2 px-4 bg-gray-500 text-white font-semibold rounded-md hover:bg-gray-600">Cancel</button>
                             )}
@@ -806,6 +909,8 @@ function MasterDashboard({ user, userRole, onLogout }) {
                                <tr className="bg-gray-100">
                                    <th className="p-3 text-base font-semibold text-gray-600">ID</th>
                                    <th className="p-3 text-base font-semibold text-gray-600">Name</th>
+                                   <th className="p-3 text-base font-semibold text-gray-600">DOB</th>
+                                   <th className="p-3 text-base font-semibold text-gray-600">Phone</th>
                                    <th className="p-3 text-base font-semibold text-gray-600">Designation</th>
                                    <th className="p-3 text-base font-semibold text-gray-600">Username</th>
                                    <th className="p-3 text-base font-semibold text-gray-600">Role</th>
@@ -817,6 +922,8 @@ function MasterDashboard({ user, userRole, onLogout }) {
                                    <tr key={u.id} className="border-b">
                                        <td className="p-3 text-sm">{u.uniqueId || 'N/A'}</td>
                                        <td className="p-3 text-sm">{u.name || 'N/A'}</td>
+                                       <td className="p-3 text-sm">{formatDate(u.dateOfBirth) || 'N/A'}</td>
+                                       <td className="p-3 text-sm">{u.phoneNumber || 'N/A'}</td>
                                        <td className="p-3 text-sm">{u.designation || 'N/A'}</td>
                                        <td className="p-3 text-sm">{u.email ? u.email.split('@')[0] : 'N/A'}</td>
                                        <td className="p-3 capitalize text-sm">{u.role || 'N/A'}</td>
@@ -835,7 +942,8 @@ function MasterDashboard({ user, userRole, onLogout }) {
                     <div className="flex-shrink-0">
                         <h2 className="text-2xl font-semibold mb-4">{editingMaterialId ? 'Edit Material' : 'Add Material'}</h2>
                         <form onSubmit={handleMaterialFormSubmit} className="space-y-4 p-4 border rounded-md">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Row 1: Name, Type, Info */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Material Name</label>
                                     <input type="text" value={newMaterialName} onChange={(e) => setNewMaterialName(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" required />
@@ -854,15 +962,19 @@ function MasterDashboard({ user, userRole, onLogout }) {
                                         <option>Electronic</option>
                                     </select>
                                 </div>
+                            </div>
+                            {/* Row 2: Units */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Caseworker Units (e.g. Box, Rim)</label>
-                                    <input type="text" placeholder="Units for procurement" value={caseworkerUnit} onChange={(e) => setCaseworkerUnit(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" required />
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Caseworker Units</label>
+                                    <input type="text" placeholder="e.g., Box, Rim" value={caseworkerUnit} onChange={(e) => setCaseworkerUnit(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" required />
                                 </div>
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Consumer Unit (e.g. Rim)</label>
-                                    <input type="text" placeholder="Unit for distribution" value={consumerUnit} onChange={(e) => setConsumerUnit(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" required />
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Consumer Unit</label>
+                                    <input type="text" placeholder="e.g., Rim" value={consumerUnit} onChange={(e) => setConsumerUnit(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" required />
                                 </div>
                             </div>
+                            {/* Buttons */}
                             <div className="flex gap-2 justify-end pt-2">
                                 {editingMaterialId && (
                                     <button type="button" onClick={resetMaterialForm} className="px-4 py-2 bg-gray-500 text-white font-semibold rounded-md hover:bg-gray-600">Cancel</button>
