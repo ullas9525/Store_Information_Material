@@ -1013,6 +1013,7 @@ function ReportsTab() {
     const [reportData, setReportData] = useState([]);
     const [monthlyReportData, setMonthlyReportData] = useState([]);
     const [annualReportData, setAnnualReportData] = useState([]);
+    const [materialsMap, setMaterialsMap] = useState(new Map());
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
     const [reportMonth, setReportMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
@@ -1020,6 +1021,17 @@ function ReportsTab() {
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [activeReportTab, setActiveReportTab] = useState('dateReport');
+    useEffect(() => {
+        const unsubscribe = onSnapshot(collection(db, 'materials'), (snapshot) => {
+            const newMap = new Map();
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                newMap.set(data.name, data.consumerUnit || data.unit || '');
+            });
+            setMaterialsMap(newMap);
+        });
+        return () => unsubscribe();
+    }, []);
 
     const handleGenerateDateReport = async () => {
         if (!fromDate || !toDate) {
@@ -1074,11 +1086,13 @@ function ReportsTab() {
         const finalReportData = Array.from(allMaterialNames).map(name => {
             const totalPurchased = purchasedMap.get(name) || 0;
             const totalGiven = distributedMap.get(name) || 0;
+            const unit = materialsMap.get(name) || '';
             return {
                 name,
                 totalPurchased,
                 totalGiven,
                 totalBalance: totalPurchased - totalGiven,
+                unit
             };
         });
 
@@ -1110,9 +1124,11 @@ function ReportsTab() {
 
         const reportMap = new Map();
         allMaterialNames.forEach(name => {
+            const unit = materialsMap.get(name) || '';
             reportMap.set(name, {
                 name, purchasedLastMonth: 0, purchasedThisMonth: 0,
                 givenLastMonth: 0, givenThisMonth: 0, balance: 0,
+                unit
             });
         });
 
@@ -1190,9 +1206,11 @@ function ReportsTab() {
 
         const reportMap = new Map();
         allMaterialNames.forEach(name => {
+            const unit = materialsMap.get(name) || '';
             reportMap.set(name, {
                 name, purchasedLastYear: 0, purchasedThisYear: 0,
                 givenLastYear: 0, givenThisYear: 0, balance: 0,
+                unit
             });
         });
 
@@ -1274,7 +1292,7 @@ function ReportsTab() {
             doc.autoTable({
                 head: [['SL.NO', 'MATERIAL', 'TOTAL PURCHASED', 'TOTAL GIVEN', 'BALANCE']],
                 body: reportData.map((row, index) => [
-                    index + 1, row.name, row.totalPurchased, row.totalGiven, row.totalBalance,
+                    index + 1, row.name, `${row.totalPurchased} ${row.unit}`, `${row.totalGiven} ${row.unit}`, `${row.totalBalance} ${row.unit}`,
                 ]),
                 startY: 20, theme: 'grid',
             });
@@ -1291,8 +1309,8 @@ function ReportsTab() {
                     ['UPTO LAST MONTH', 'THIS MONTH', 'UPTO LAST MONTH', 'THIS MONTH']
                 ],
                 body: monthlyReportData.map((row, index) => [
-                    index + 1, row.name, row.purchasedLastMonth, row.purchasedThisMonth,
-                    row.givenLastMonth, row.givenThisMonth, row.balance,
+                    index + 1, row.name, `${row.purchasedLastMonth} ${row.unit}`, `${row.purchasedThisMonth} ${row.unit}`,
+                    `${row.givenLastMonth} ${row.unit}`, `${row.givenThisMonth} ${row.unit}`, `${row.balance} ${row.unit}`,
                 ]),
                 startY: 20, theme: 'grid', headStyles: { fillColor: [22, 160, 133], textColor: 255, fontStyle: 'bold' }
             });
@@ -1309,8 +1327,8 @@ function ReportsTab() {
                     ['UPTO LAST YEAR', 'THIS YEAR', 'UPTO LAST YEAR', 'THIS YEAR']
                 ],
                 body: annualReportData.map((row, index) => [
-                    index + 1, row.name, row.purchasedLastYear, row.purchasedThisYear,
-                    row.givenLastYear, row.givenThisYear, row.balance,
+                    index + 1, row.name, `${row.purchasedLastYear} ${row.unit}`, `${row.purchasedThisYear} ${row.unit}`,
+                    `${row.givenLastYear} ${row.unit}`, `${row.givenThisYear} ${row.unit}`, `${row.balance} ${row.unit}`,
                 ]),
                 startY: 20, theme: 'grid', headStyles: { fillColor: [22, 160, 133], textColor: 255, fontStyle: 'bold' }
             });
@@ -1328,19 +1346,19 @@ function ReportsTab() {
             title = 'Date Wise Report';
             headers = '<th>SL.NO</th><th>MATERIAL</th><th>TOTAL PURCHASED</th><th>TOTAL GIVEN</th><th>BALANCE</th>';
             reportData.forEach((row, index) => {
-                body += `<tr><td>${index + 1}</td><td>${row.name}</td><td>${row.totalPurchased}</td><td>${row.totalGiven}</td><td>${row.totalBalance}</td></tr>`;
+                body += `<tr><td>${index + 1}</td><td>${row.name}</td><td>${row.totalPurchased} ${row.unit}</td><td>${row.totalGiven} ${row.unit}</td><td>${row.totalBalance} ${row.unit}</td></tr>`;
             });
         } else if (activeReportTab === 'monthlyReport') {
             title = 'Monthly Report';
             headers = '<th rowspan="2">SL.NO</th><th rowspan="2">MATERIAL</th><th colspan="2">TOTAL PURCHASED</th><th colspan="2">TOTAL GIVEN</th><th rowspan="2">BALANCE</th></tr><tr><th>UPTO LAST MONTH</th><th>THIS MONTH</th><th>UPTO LAST MONTH</th><th>THIS MONTH</th>';
             monthlyReportData.forEach((row, index) => {
-                body += `<tr><td>${index + 1}</td><td>${row.name}</td><td>${row.purchasedLastMonth}</td><td>${row.purchasedThisMonth}</td><td>${row.givenLastMonth}</td><td>${row.givenThisMonth}</td><td>${row.balance}</td></tr>`;
+                body += `<tr><td>${index + 1}</td><td>${row.name}</td><td>${row.purchasedLastMonth} ${row.unit}</td><td>${row.purchasedThisMonth} ${row.unit}</td><td>${row.givenLastMonth} ${row.unit}</td><td>${row.givenThisMonth} ${row.unit}</td><td>${row.balance} ${row.unit}</td></tr>`;
             });
         } else if (activeReportTab === 'annualReport') {
             title = 'Annual Report';
             headers = '<th rowspan="2">SL.NO</th><th rowspan="2">MATERIAL</th><th colspan="2">TOTAL PURCHASED</th><th colspan="2">TOTAL GIVEN</th><th rowspan="2">BALANCE</th></tr><tr><th>UPTO LAST YEAR</th><th>THIS YEAR</th><th>UPTO LAST YEAR</th><th>THIS YEAR</th>';
             annualReportData.forEach((row, index) => {
-                body += `<tr><td>${index + 1}</td><td>${row.name}</td><td>${row.purchasedLastYear}</td><td>${row.purchasedThisYear}</td><td>${row.givenLastYear}</td><td>${row.givenThisYear}</td><td>${row.balance}</td></tr>`;
+                body += `<tr><td>${index + 1}</td><td>${row.name}</td><td>${row.purchasedLastYear} ${row.unit}</td><td>${row.purchasedThisYear} ${row.unit}</td><td>${row.givenLastYear} ${row.unit}</td><td>${row.givenThisYear} ${row.unit}</td><td>${row.balance} ${row.unit}</td></tr>`;
             });
         }
         
@@ -1365,7 +1383,7 @@ function ReportsTab() {
         if (activeReportTab === 'dateReport') {
             ws_data.push(['SL.NO', 'MATERIAL', 'TOTAL PURCHASED', 'TOTAL GIVEN', 'BALANCE']);
             reportData.forEach((row, index) => {
-                ws_data.push([index + 1, row.name, row.totalPurchased, row.totalGiven, row.totalBalance]);
+                ws_data.push([index + 1, row.name, `${row.totalPurchased} ${row.unit}`, `${row.totalGiven} ${row.unit}`, `${row.totalBalance} ${row.unit}`]);
             });
         } else if (activeReportTab === 'monthlyReport') {
             ws_data = [
@@ -1373,7 +1391,7 @@ function ReportsTab() {
                 ['SL.NO', 'MATERIAL', 'UPTO LAST MONTH', 'THIS MONTH', 'UPTO LAST MONTH', 'THIS MONTH', 'BALANCE']
             ];
             monthlyReportData.forEach((row, index) => {
-                ws_data.push([index + 1, row.name, row.purchasedLastMonth, row.purchasedThisMonth, row.givenLastMonth, row.givenThisMonth, row.balance]);
+                ws_data.push([index + 1, row.name, `${row.purchasedLastMonth} ${row.unit}`, `${row.purchasedThisMonth} ${row.unit}`, `${row.givenLastMonth} ${row.unit}`, `${row.givenThisMonth} ${row.unit}`, `${row.balance} ${row.unit}`]);
             });
             merges = [{ s: { r: 0, c: 2 }, e: { r: 0, c: 3 } }, { s: { r: 0, c: 4 }, e: { r: 0, c: 5 } }];
         } else if (activeReportTab === 'annualReport') {
@@ -1382,7 +1400,7 @@ function ReportsTab() {
                 ['SL.NO', 'MATERIAL', 'UPTO LAST YEAR', 'THIS YEAR', 'UPTO LAST YEAR', 'THIS YEAR', 'BALANCE']
             ];
             annualReportData.forEach((row, index) => {
-                ws_data.push([index + 1, row.name, row.purchasedLastYear, row.purchasedThisYear, row.givenLastYear, row.givenThisYear, row.balance]);
+                ws_data.push([index + 1, row.name, `${row.purchasedLastYear} ${row.unit}`, `${row.purchasedThisYear} ${row.unit}`, `${row.givenLastYear} ${row.unit}`, `${row.givenThisYear} ${row.unit}`, `${row.balance} ${row.unit}`]);
             });
             merges = [{ s: { r: 0, c: 2 }, e: { r: 0, c: 3 } }, { s: { r: 0, c: 4 }, e: { r: 0, c: 5 } }];
         }
@@ -1475,9 +1493,9 @@ function ReportsTab() {
                                     <tr key={index} className="border-b">
                                         <td className="p-3">{index + 1}</td>
                                         <td className="p-3">{row.name}</td>
-                                        <td className="p-3">{row.totalPurchased}</td>
-                                        <td className="p-3">{row.totalGiven}</td>
-                                        <td className="p-3">{row.totalBalance}</td>
+                                        <td className="p-3">{row.totalPurchased} {row.unit}</td>
+                                        <td className="p-3">{row.totalGiven} {row.unit}</td>
+                                        <td className="p-3">{row.totalBalance} {row.unit}</td>
                                     </tr>
                                 ))
                             )}
@@ -1509,11 +1527,11 @@ function ReportsTab() {
                                     <tr key={index} className="border-b">
                                         <td className="p-3">{index + 1}</td>
                                         <td className="p-3">{row.name}</td>
-                                        <td className="p-3">{row.purchasedLastMonth}</td>
-                                        <td className="p-3">{row.purchasedThisMonth}</td>
-                                        <td className="p-3">{row.givenLastMonth}</td>
-                                        <td className="p-3">{row.givenThisMonth}</td>
-                                        <td className="p-3">{row.balance}</td>
+                                        <td className="p-3">{row.purchasedLastMonth} {row.unit}</td>
+                                        <td className="p-3">{row.purchasedThisMonth} {row.unit}</td>
+                                        <td className="p-3">{row.givenLastMonth} {row.unit}</td>
+                                        <td className="p-3">{row.givenThisMonth} {row.unit}</td>
+                                        <td className="p-3">{row.balance} {row.unit}</td>
                                     </tr>
                                 ))
                             )}
@@ -1545,11 +1563,11 @@ function ReportsTab() {
                                     <tr key={index} className="border-b">
                                         <td className="p-3">{index + 1}</td>
                                         <td className="p-3">{row.name}</td>
-                                        <td className="p-3">{row.purchasedLastYear}</td>
-                                        <td className="p-3">{row.purchasedThisYear}</td>
-                                        <td className="p-3">{row.givenLastYear}</td>
-                                        <td className="p-3">{row.givenThisYear}</td>
-                                        <td className="p-3">{row.balance}</td>
+                                        <td className="p-3">{row.purchasedLastYear} {row.unit}</td>
+                                        <td className="p-3">{row.purchasedThisYear} {row.unit}</td>
+                                        <td className="p-3">{row.givenLastYear} {row.unit}</td>
+                                        <td className="p-3">{row.givenThisYear} {row.unit}</td>
+                                        <td className="p-3">{row.balance} {row.unit}</td>
                                     </tr>
                                 ))
                             )}
