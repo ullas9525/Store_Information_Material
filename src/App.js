@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 // Import Firebase core and specific services.
 import { initializeApp, deleteApp } from 'firebase/app';
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, EmailAuthProvider, reauthenticateWithCredential, updatePassword, updateEmail } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, EmailAuthProvider, reauthenticateWithCredential, updatePassword, updateEmail, RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 import { getFirestore, doc, getDoc, collection, addDoc, onSnapshot, serverTimestamp, updateDoc, deleteDoc, query, where, getDocs, setDoc, runTransaction } from 'firebase/firestore';
 
 // --- IMPORTANT ---
@@ -131,7 +131,12 @@ export default function App() {
     }
   };
 
-  return <div className="h-screen bg-gray-50">{renderDashboard()}</div>;
+  return (
+    <div className="h-screen bg-gray-50">
+      <div id="recaptcha-container" style={{ display: 'none' }}></div>
+      {renderDashboard()}
+    </div>
+  );
 }
 
 // --- Password Visibility Toggle Icon ---
@@ -160,6 +165,7 @@ function Login({ onLogin, error }) {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
     const debounceTimeout = useRef(null);
 
     useEffect(() => {
@@ -229,6 +235,13 @@ function Login({ onLogin, error }) {
                           <EyeIcon visible={showPassword} onClick={() => setShowPassword(!showPassword)} />
                         </div>
                     </div>
+                    <div className="flex items-center justify-between">
+                        <div className="text-sm">
+                            <button type="button" onClick={() => setIsForgotPasswordOpen(true)} className="font-medium text-indigo-600 hover:text-indigo-500">
+                                Forgot your password?
+                            </button>
+                        </div>
+                    </div>
                     {error && <p className="text-sm text-red-600 text-center">{error}</p>}
                     <div>
                         <button type="submit" className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
@@ -237,43 +250,234 @@ function Login({ onLogin, error }) {
                     </div>
                 </form>
             </div>
+            {isForgotPasswordOpen && <ForgotPasswordModal onClose={() => setIsForgotPasswordOpen(false)} />}
         </div>
     );
 }
-// --- Change Password Modal ---
-function ChangePasswordModal({ user, onClose }) {
-    const [oldPassword, setOldPassword] = useState('');
+
+function ForgotPasswordModal({ onClose }) {
+    const [step, setStep] = useState(1); // 1: Verify Details, 2: Verify OTP, 3: Reset Password
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+    
+    // Step 1 State
+    const [uid, setUid] = useState('');
+    const [username, setUsername] = useState('');
+    const [dob, setDob] = useState('');
+    const [phone, setPhone] = useState('');
+
+    // Step 2 State
+    const [otp, setOtp] = useState('');
+    const [confirmationResult, setConfirmationResult] = useState(null);
+
+    // Step 3 State
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [targetUser, setTargetUser] = useState(null);
 
-    const handleChangePassword = async (e) => {
+    const setupRecaptcha = () => {
+        if (!window.recaptchaVerifier) {
+            window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                'size': 'invisible',
+                'callback': (response) => {
+                    // reCAPTCHA solved, allow signInWithPhoneNumber.
+                }
+            });
+        }
+    };
+
+    const handleVerifyDetails = async (e) => {
         e.preventDefault();
         setError('');
-        setSuccess('');
+        setLoading(true);
+        try {
+            const userQuery = query(
+                collection(db, "users"),
+                where("uniqueId", "==", uid),
+                where("email", "==", `${username}@gmail.com`),
+                where("dateOfBirth", "==", dob),
+                where("phoneNumber", "==", phone)
+            );
+            const querySnapshot = await getDocs(userQuery);
 
+            if (querySnapshot.empty) {
+                setError("The details provided do not match any user. Please check and try again.");
+                setLoading(false);
+                return;
+            }
+            
+            // const userData = querySnapshot.docs[0].data();
+            // setTargetUser(userData); // This isn't needed for the mocked final step
+
+            setupRecaptcha();
+            const appVerifier = window.recaptchaVerifier;
+            const phoneNumberWithCountryCode = `+91${phone}`;
+            
+            const confirmation = await signInWithPhoneNumber(auth, phoneNumberWithCountryCode, appVerifier);
+            setConfirmationResult(confirmation);
+            setStep(2);
+
+        } catch (err) {
+            console.error("Verification Error:", err);
+            setError("Failed to verify details or send OTP. Please ensure your phone number is correct and try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyOtp = async (e) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+        try {
+            await confirmationResult.confirm(otp);
+            setStep(3);
+        } catch (err) {
+            console.error("OTP Verification Error:", err);
+            setError("Invalid OTP. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResetPassword = async (e) => {
+        e.preventDefault();
+        alert("This final step requires a secure backend function (like Firebase Cloud Functions) to complete for security reasons. This functionality is mocked on the client-side.");
+        onClose();
+        
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+            <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+                <h2 className="text-2xl font-bold mb-6 text-center">Reset Password</h2>
+                {step === 1 && (
+                    <form onSubmit={handleVerifyDetails} className="space-y-4">
+                        <p className="text-sm text-gray-600 text-center">Enter your details to verify your identity.</p>
+                        <input type="text" placeholder="Unique ID" value={uid} onChange={e => setUid(e.target.value)} className="w-full p-2 border rounded-md" required />
+                        <input type="text" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} className="w-full p-2 border rounded-md" required />
+                        <input type="date" placeholder="Date of Birth" value={dob} onChange={e => setDob(e.target.value)} className="w-full p-2 border rounded-md" required />
+                        <input type="tel" placeholder="10-Digit Phone Number" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} className="w-full p-2 border rounded-md" maxLength="10" required />
+                        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+                        <div className="flex justify-end gap-4 pt-4">
+                            <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400">Cancel</button>
+                            <button type="submit" disabled={loading} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-400">{loading ? 'Verifying...' : 'Verify & Send OTP'}</button>
+                        </div>
+                    </form>
+                )}
+                {step === 2 && (
+                    <form onSubmit={handleVerifyOtp} className="space-y-4">
+                        <p className="text-sm text-gray-600 text-center">An OTP has been sent to your phone number.</p>
+                        <input type="text" placeholder="Enter 6-Digit OTP" value={otp} onChange={e => setOtp(e.target.value)} className="w-full p-2 border rounded-md" maxLength="6" required />
+                        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+                        <div className="flex justify-end gap-4 pt-4">
+                            <button type="button" onClick={() => setStep(1)} className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400">Back</button>
+                            <button type="submit" disabled={loading} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-400">{loading ? 'Verifying...' : 'Verify OTP'}</button>
+                        </div>
+                    </form>
+                )}
+                {step === 3 && (
+                     <form onSubmit={handleResetPassword} className="space-y-4">
+                        <p className="text-sm text-gray-600 text-center">Verification successful. Set your new password.</p>
+                        <input type="password" placeholder="New Password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-2 border rounded-md" required />
+                        <input type="password" placeholder="Confirm New Password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full p-2 border rounded-md" required />
+                        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+                        <div className="flex justify-end gap-4 pt-4">
+                            <button type="submit" disabled={loading || newPassword !== confirmPassword} className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-400">Reset Password</button>
+                        </div>
+                    </form>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// --- Change Password Modal ---
+function ChangePasswordModal({ user, onClose }) {
+    const [step, setStep] = useState(1); // 1: Send OTP, 2: Verify OTP, 3: Change Password
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [loading, setLoading] = useState(false);
+    
+    const [phoneNumber, setPhoneNumber] = useState('');
+    const [otp, setOtp] = useState('');
+    const [confirmationResult, setConfirmationResult] = useState(null);
+    
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+
+    useEffect(() => {
+        const fetchPhoneNumber = async () => {
+            if (user) {
+                const userDocRef = doc(db, 'users', user.uid);
+                const userDoc = await getDoc(userDocRef);
+                if (userDoc.exists()) {
+                    setPhoneNumber(userDoc.data().phoneNumber || '');
+                }
+            }
+        };
+        fetchPhoneNumber();
+    }, [user]);
+
+    const setupRecaptcha = () => {
+        if (!window.recaptchaVerifier) {
+            window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                'size': 'invisible',
+            });
+        }
+    };
+
+    const handleSendOtp = async () => {
+        setError('');
+        setLoading(true);
+        try {
+            setupRecaptcha();
+            const appVerifier = window.recaptchaVerifier;
+            const phoneNumberWithCountryCode = `+91${phoneNumber}`;
+            const confirmation = await signInWithPhoneNumber(auth, phoneNumberWithCountryCode, appVerifier);
+            setConfirmationResult(confirmation);
+            setStep(2);
+        } catch (err) {
+            console.error("Send OTP Error:", err);
+            setError("Failed to send OTP. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyOtp = async (e) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+        try {
+            await confirmationResult.confirm(otp);
+            setStep(3);
+        } catch (err) {
+            console.error("OTP Verification Error:", err);
+            setError("Invalid OTP. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    const handleChangePassword = async (e) => {
+        e.preventDefault();
         if (newPassword !== confirmPassword) {
             setError("New passwords do not match.");
             return;
         }
-
-        if (!user) {
-            setError("No user is signed in.");
-            return;
-        }
-
+        setError('');
+        setSuccess('');
+        setLoading(true);
         try {
-            const credential = EmailAuthProvider.credential(user.email, oldPassword);
-            await reauthenticateWithCredential(user, credential);
             await updatePassword(user, newPassword);
             setSuccess("Password updated successfully!");
-            setTimeout(() => {
-                onClose();
-            }, 2000);
+            setTimeout(onClose, 2000);
         } catch (error) {
             console.error("Password Change Error:", error);
-            setError("Failed to change password. Check your old password.");
+            setError("Failed to change password.");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -281,38 +485,37 @@ function ChangePasswordModal({ user, onClose }) {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
             <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
                 <h2 className="text-2xl font-bold mb-6">Change Password</h2>
-                <form onSubmit={handleChangePassword} className="space-y-4">
-                    <input
-                        type="password"
-                        placeholder="Old Password"
-                        value={oldPassword}
-                        onChange={(e) => setOldPassword(e.target.value)}
-                        className="w-full p-2 border rounded-md"
-                        required
-                    />
-                    <input
-                        type="password"
-                        placeholder="New Password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full p-2 border rounded-md"
-                        required
-                    />
-                    <input
-                        type="password"
-                        placeholder="Confirm New Password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full p-2 border rounded-md"
-                        required
-                    />
-                    {error && <p className="text-red-500 text-sm">{error}</p>}
-                    {success && <p className="text-green-500 text-sm">{success}</p>}
-                    <div className="flex justify-end gap-4 pt-4">
-                        <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400">Cancel</button>
-                        <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Update</button>
+                {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
+                {success && <p className="text-green-500 text-sm mb-4 text-center">{success}</p>}
+
+                {step === 1 && (
+                    <div className="space-y-4">
+                        <p className="text-center">An OTP will be sent to your registered phone number: <strong>+91{phoneNumber}</strong></p>
+                        <div className="flex justify-end gap-4 pt-4">
+                            <button onClick={onClose} className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400">Cancel</button>
+                            <button onClick={handleSendOtp} disabled={loading || !phoneNumber} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-400">{loading ? 'Sending...' : 'Send OTP'}</button>
+                        </div>
                     </div>
-                </form>
+                )}
+                {step === 2 && (
+                    <form onSubmit={handleVerifyOtp} className="space-y-4">
+                        <input type="text" placeholder="Enter 6-Digit OTP" value={otp} onChange={e => setOtp(e.target.value)} className="w-full p-2 border rounded-md" maxLength="6" required />
+                        <div className="flex justify-end gap-4 pt-4">
+                            <button type="button" onClick={() => setStep(1)} className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400">Back</button>
+                            <button type="submit" disabled={loading} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-400">{loading ? 'Verifying...' : 'Verify OTP'}</button>
+                        </div>
+                    </form>
+                )}
+                {step === 3 && (
+                    <form onSubmit={handleChangePassword} className="space-y-4">
+                        <input type="password" placeholder="New Password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-2 border rounded-md" required />
+                        <input type="password" placeholder="Confirm New Password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full p-2 border rounded-md" required />
+                        <div className="flex justify-end gap-4 pt-4">
+                            <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400">Cancel</button>
+                            <button type="submit" disabled={loading || newPassword !== confirmPassword} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-400">Update Password</button>
+                        </div>
+                    </form>
+                )}
             </div>
         </div>
     );
@@ -566,6 +769,13 @@ function MasterDashboard({ user, userRole, onLogout }) {
     const [consumerUnit, setConsumerUnit] = useState('');
     const [editingMaterialId, setEditingMaterialId] = useState(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+    useEffect(() => {
+        const units = caseworkerUnit.split(',').map(u => u.trim());
+        if (units.length > 1 && units[1]) {
+            setConsumerUnit(units[1]);
+        }
+    }, [caseworkerUnit]);
 
     useEffect(() => {
         const usersUnsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
@@ -2547,8 +2757,8 @@ function DataEntryForm({ user }) {
   }, [selectedMaterial, materials]);
 
   useEffect(() => {
-    const containerWords = ['box', 'boxes', 'carton', 'case'];
-    if (unit && containerWords.some(word => unit.toLowerCase().includes(word)) && unitOptions.length > 1) {
+    // New logic: Show conversion input only if there are multiple units AND the selected unit is the FIRST one.
+    if (unitOptions.length > 1 && unit === unitOptions[0]) {
         setShowConversionInput(true);
     } else {
         setShowConversionInput(false);
@@ -3120,102 +3330,6 @@ function BulkAddModal({ data, onClose, onConfirm }) {
             </div>
         </div>
     );
-}
-
-// --- Placeholder Component for empty sections ---
-function PlaceholderComponent({ title }) {
-  return (
-    <div className="p-6 bg-white rounded-lg shadow-md h-full">
-      <h2 className="text-2xl font-semibold text-gray-700">{title}</h2>
-      <p className="mt-4 text-gray-500">This section is under development and will be available in a future update.</p>
-    </div>
-  );
-}
-
-// --- Manage Materials Modal ---
-function ManageMaterialsModal({ materials, onClose }) {
-  const [newMaterialName, setNewMaterialName] = useState('');
-  const [newMaterialType, setNewMaterialType] = useState('Non-returnable');
-  const [newMaterialInfo, setNewMaterialInfo] = useState('Non-Electronic');
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-
-  const handleAddMaterial = async (e) => {
-    e.preventDefault();
-    if (!newMaterialName) { alert("Please enter a material name."); return; }
-    try {
-      await addDoc(collection(db, 'materials'), { name: newMaterialName, type: newMaterialType, info: newMaterialInfo });
-      setNewMaterialName('');
-    } catch (error) {
-      console.error("Error adding new material: ", error);
-      alert("Failed to add material.");
-    }
-  };
-
-  const handleDeleteMaterial = async (materialId) => {
-    try {
-        await deleteDoc(doc(db, 'materials', materialId));
-        setConfirmDeleteId(null);
-    } catch (error) {
-        console.error("Error deleting material: ", error);
-        alert("Failed to delete material.");
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-      <div className="bg-white p-6 md:p-8 rounded-lg shadow-2xl w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-6">Manage Materials</h2>
-        <form onSubmit={handleAddMaterial} className="space-y-4 p-4 border rounded-md mb-6">
-          <h3 className="font-semibold text-lg">Add New Material</h3>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">New Material Name</label>
-            <input type="text" value={newMaterialName} onChange={(e) => setNewMaterialName(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" required />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Material Type</label>
-            <select value={newMaterialType} onChange={(e) => setNewMaterialType(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md">
-              <option>Non-returnable</option>
-              <option>Returnable</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Material Information</label>
-            <select value={newMaterialInfo} onChange={(e) => setNewMaterialInfo(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md">
-              <option>Non-Electronic</option>
-              <option>Electronic</option>
-            </select>
-          </div>
-          <div className="flex justify-end">
-            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Add Material</button>
-          </div>
-        </form>
-        <div className="space-y-2">
-            <h3 className="font-semibold text-lg">Existing Materials</h3>
-            <div className="max-h-48 overflow-y-auto border rounded-md">
-                {materials.length === 0 ? (<p className="text-gray-500 p-4 text-center">No materials found.</p>) : (
-                    materials.map(material => (
-                        <div key={material.id} className="flex justify-between items-center p-2 border-b last:border-b-0">
-                            <span className="text-gray-800">{material.name}</span>
-                            {confirmDeleteId === material.id ? (
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm text-red-600">Sure?</span>
-                                    <button onClick={() => handleDeleteMaterial(material.id)} className="px-3 py-1 text-xs bg-red-500 text-white rounded-md hover:bg-red-600">Yes</button>
-                                    <button onClick={() => setConfirmDeleteId(null)} className="px-3 py-1 text-xs bg-gray-300 rounded-md hover:bg-gray-400">No</button>
-                                </div>
-                            ) : (
-                                <button onClick={() => setConfirmDeleteId(material.id)} className="text-red-500 hover:text-red-700 font-bold text-xl w-6 h-6 flex items-center justify-center rounded-full hover:bg-red-100 transition-colors" title={`Remove ${material.name}`}>&ndash;</button>
-                            )}
-                        </div>
-                    ))
-                )}
-            </div>
-        </div>
-        <div className="flex justify-end pt-6">
-            <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Close</button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // --- Export Modal Component ---
