@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 // Import Firebase core and specific services.
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, EmailAuthProvider, reauthenticateWithCredential, updatePassword, updateEmail, RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
-import { getFirestore, doc, getDoc, collection, addDoc, onSnapshot, serverTimestamp, updateDoc, deleteDoc, query, where, getDocs, setDoc, runTransaction } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, collection, addDoc, onSnapshot, serverTimestamp, updateDoc, deleteDoc, query, where, getDocs, setDoc, runTransaction, orderBy } from 'firebase/firestore';
 
 // --- IMPORTANT ---
 // This is your Firebase project's configuration object.
@@ -273,7 +273,7 @@ function ForgotPasswordModal({ onClose }) {
     // Step 3 State
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [targetUser, setTargetUser] = useState(null);
+    const [, setTargetUser] = useState(null);
 
     const setupRecaptcha = () => {
         if (!window.recaptchaVerifier) {
@@ -702,40 +702,30 @@ function SettingsButton({ user, userRole, onLogout }) {
 
 // --- Add Designation Modal ---
 function AddDesignationModal({ onClose, onAddDesignation }) {
-    const [newDesignationName, setNewDesignationName] = useState('');
-    const [error, setError] = useState('');
+    const [designationName, setDesignationName] = useState('');
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
-        setError('');
-        if (!newDesignationName.trim()) {
-            setError("Please enter a designation name.");
-            return;
-        }
-        await onAddDesignation(newDesignationName.trim());
+        onAddDesignation(designationName);
         onClose();
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
-                <h2 className="text-2xl font-bold mb-6 text-center">Add New Designation</h2>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label htmlFor="designationName" className="block text-sm font-medium text-gray-700 mb-1">Designation Name</label>
-                        <input
-                            type="text"
-                            id="designationName"
-                            value={newDesignationName}
-                            onChange={(e) => setNewDesignationName(e.target.value)}
-                            className="w-full p-2 border border-gray-300 rounded-md"
-                            required
-                        />
-                    </div>
-                    {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-                    <div className="flex justify-end gap-4 pt-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+                <h2 className="text-2xl font-bold mb-4">Add New Designation</h2>
+                <form onSubmit={handleSubmit}>
+                    <input
+                        type="text"
+                        value={designationName}
+                        onChange={(e) => setDesignationName(e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-md mb-4"
+                        placeholder="Enter new designation"
+                        required
+                    />
+                    <div className="flex justify-end gap-4">
                         <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400">Cancel</button>
-                        <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Add Designation</button>
+                        <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Add</button>
                     </div>
                 </form>
             </div>
@@ -743,8 +733,107 @@ function AddDesignationModal({ onClose, onAddDesignation }) {
     );
 }
 
+// --- Add/Edit Section Modal ---
+function AddSectionModal({ availableSections, selectedSections, onClose, onSave, onRenameSection, onAddSection }) {
+    const [currentSections, setCurrentSections] = useState(selectedSections || []);
+    const [editingId, setEditingId] = useState(null);
+    const [editingText, setEditingText] = useState('');
+    const [newSectionName, setNewSectionName] = useState('');
 
-// --- Master Dashboard Component [UPDATED for Username] ---
+    const handleCheckboxChange = (sectionName) => {
+        setCurrentSections(prev =>
+            prev.includes(sectionName) ? prev.filter(s => s !== sectionName) : [...prev, sectionName]
+        );
+    };
+
+    const handleSave = () => {
+        onSave(currentSections);
+        onClose();
+    };
+    
+    const handleStartEdit = (section) => {
+        setEditingId(section.id);
+        setEditingText(section.name);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingId(null);
+        setEditingText('');
+    };
+    
+    const handleSaveEdit = () => {
+        if (editingText.trim() === '') return;
+        onRenameSection(editingId, editingText.trim());
+        setEditingId(null);
+        setEditingText('');
+    };
+
+    const handleAddNewSection = () => {
+        if (newSectionName.trim() === '') return;
+        onAddSection(newSectionName.trim());
+        setNewSectionName('');
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+                <h2 className="text-2xl font-bold mb-6 text-center">Select & Manage Sections</h2>
+                
+                <div className="flex gap-2 mb-4">
+                    <input 
+                        type="text" 
+                        value={newSectionName}
+                        onChange={(e) => setNewSectionName(e.target.value)}
+                        placeholder="Add new section..."
+                        className="flex-grow p-2 border border-gray-300 rounded-md"
+                    />
+                    <button onClick={handleAddNewSection} className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">Add</button>
+                </div>
+
+                <div className="space-y-2 max-h-60 overflow-y-auto p-2 border rounded-md">
+                    {availableSections.map(section => (
+                        <div key={section.id} className="flex items-center justify-between p-2 rounded-md hover:bg-gray-100">
+                            {editingId === section.id ? (
+                                <div className="flex-grow flex items-center gap-2">
+                                    <input 
+                                        type="text"
+                                        value={editingText}
+                                        onChange={(e) => setEditingText(e.target.value)}
+                                        className="flex-grow p-1 border border-gray-300 rounded-md"
+                                    />
+                                    <button onClick={handleSaveEdit} className="p-1 text-green-600 hover:text-green-800">✓</button>
+                                    <button onClick={handleCancelEdit} className="p-1 text-red-600 hover:text-red-800">✗</button>
+                                </div>
+                            ) : (
+                                <>
+                                    <label className="flex items-center space-x-2 flex-grow cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={currentSections.includes(section.name)}
+                                            onChange={() => handleCheckboxChange(section.name)}
+                                            className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                        />
+                                        <span>{section.name}</span>
+                                    </label>
+                                    <button onClick={() => handleStartEdit(section)} className="p-1 text-gray-500 hover:text-gray-800" title={`Rename ${section.name}`}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="http://www.w3.org/2000/svg" fill="currentColor">
+                                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                        </svg>
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    ))}
+                </div>
+                <div className="flex justify-end gap-4 pt-6">
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400">Cancel</button>
+                    <button type="button" onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Save Selected</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+// --- Master Dashboard Component ---
 function MasterDashboard({ user, userRole, onLogout }) {
     const [users, setUsers] = useState([]);
     const [uniqueId, setUniqueId] = useState('');
@@ -752,7 +841,8 @@ function MasterDashboard({ user, userRole, onLogout }) {
     const [dateOfBirth, setDateOfBirth] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [designation, setDesignation] = useState('');
-    const [newUsername, setNewUsername] = useState(''); // Changed from newUserEmail
+    const [selectedSections, setSelectedSections] = useState([]);
+    const [newUsername, setNewUsername] = useState('');
     const [newUserRole, setNewUserRole] = useState('consumer');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -760,6 +850,7 @@ function MasterDashboard({ user, userRole, onLogout }) {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [designations, setDesignations] = useState([]);
     const [isAddDesignationModalOpen, setIsAddDesignationModalOpen] = useState(false);
+    const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false);
     const [editingUserId, setEditingUserId] = useState(null);
     const [materials, setMaterials] = useState([]);
     const [newMaterialName, setNewMaterialName] = useState('');
@@ -769,6 +860,29 @@ function MasterDashboard({ user, userRole, onLogout }) {
     const [consumerUnit, setConsumerUnit] = useState('');
     const [editingMaterialId, setEditingMaterialId] = useState(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+    const [availableSections, setAvailableSections] = useState([]);
+    
+    useEffect(() => {
+        // Fetches sections and initializes them if they don't exist
+        const sectionsRef = collection(db, 'sections');
+        const unsubscribe = onSnapshot(query(sectionsRef, orderBy("name")), async (snapshot) => {
+            if (snapshot.empty) {
+                console.log("No sections found, initializing A-Z...");
+                const batch = runTransaction(db, async (transaction) => {
+                    const initialSections = Array.from({ length: 26 }, (_, i) => String.fromCharCode('A'.charCodeAt(0) + i));
+                    initialSections.forEach(name => {
+                        const docRef = doc(sectionsRef);
+                        transaction.set(docRef, { name });
+                    });
+                });
+                await batch;
+            } else {
+                const sectionsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setAvailableSections(sectionsList);
+            }
+        });
+        return () => unsubscribe();
+    }, []);
 
     useEffect(() => {
         const units = caseworkerUnit.split(',').map(u => u.trim());
@@ -803,6 +917,52 @@ function MasterDashboard({ user, userRole, onLogout }) {
         };
     }, []);
 
+    const handleRenameSection = async (sectionId, newName) => {
+        const oldSection = availableSections.find(s => s.id === sectionId);
+        if (!oldSection) return;
+    
+        const oldName = oldSection.name;
+    
+        const nameExists = availableSections.some(
+            section => section.name.toLowerCase() === newName.toLowerCase() && section.id !== sectionId
+        );
+    
+        if (nameExists) {
+            alert(`The section name "${newName}" already exists.`);
+            return;
+        }
+    
+        const sectionDocRef = doc(db, 'sections', sectionId);
+        try {
+            await updateDoc(sectionDocRef, { name: newName });
+            
+            setSelectedSections(prev => 
+                prev.map(s => s === oldName ? newName : s)
+            );
+    
+        } catch (error) {
+            console.error("Error renaming section:", error);
+            alert("Failed to rename the section.");
+        }
+    };
+
+    const handleAddSection = async (sectionName) => {
+        const nameExists = availableSections.some(
+            section => section.name.toLowerCase() === sectionName.toLowerCase()
+        );
+        if (nameExists) {
+            alert(`The section name "${sectionName}" already exists.`);
+            return;
+        }
+        try {
+            // All users can create sections, so no special permissions are needed here.
+            await addDoc(collection(db, 'sections'), { name: sectionName });
+        } catch (error) {
+            console.error("Error adding section:", error);
+            alert("Failed to add the section. Please check Firestore rules.");
+        }
+    };
+
     const handleAddDesignation = async (designationName) => {
         if (!designationName) {
             alert("Please enter a designation name.");
@@ -823,6 +983,7 @@ function MasterDashboard({ user, userRole, onLogout }) {
         setDateOfBirth('');
         setPhoneNumber('');
         setDesignation('');
+        setSelectedSections([]);
         setNewUsername('');
         setPassword('');
         setConfirmPassword('');
@@ -839,7 +1000,7 @@ function MasterDashboard({ user, userRole, onLogout }) {
         }
 
         if (editingUserId) {
-            const updatedDetails = { uniqueId, name, dateOfBirth, phoneNumber, designation, role: newUserRole };
+            const updatedDetails = { uniqueId, name, dateOfBirth, phoneNumber, designation, sections: selectedSections, role: newUserRole };
             try {
                 const userDocRef = doc(db, 'users', editingUserId);
                 await updateDoc(userDocRef, updatedDetails);
@@ -858,6 +1019,7 @@ function MasterDashboard({ user, userRole, onLogout }) {
                     uniqueId,
                     name,
                     designation,
+                    sections: selectedSections,
                     role: 'messenger',
                     email: null 
                 });
@@ -895,7 +1057,7 @@ function MasterDashboard({ user, userRole, onLogout }) {
             const newUser = userCredential.user;
 
             await setDoc(doc(db, "users", newUser.uid), {
-                uniqueId, name, dateOfBirth, phoneNumber, designation, email: newUserEmail, role: newUserRole
+                uniqueId, name, dateOfBirth, phoneNumber, designation, sections: selectedSections, email: newUserEmail, role: newUserRole
             });
             
             alert(`User ${newUsername} created successfully.`);
@@ -928,6 +1090,7 @@ function MasterDashboard({ user, userRole, onLogout }) {
         setDateOfBirth(userToEdit.dateOfBirth || '');
         setPhoneNumber(userToEdit.phoneNumber || '');
         setDesignation(userToEdit.designation || '');
+        setSelectedSections(userToEdit.sections || []);
         setNewUsername(userToEdit.email ? userToEdit.email.split('@')[0] : '');
         setNewUserRole(userToEdit.role || 'consumer');
     };
@@ -1012,7 +1175,6 @@ function MasterDashboard({ user, userRole, onLogout }) {
                 <div className="bg-white p-6 rounded-lg shadow-md flex flex-col">
                     <h2 className="text-2xl font-semibold mb-4">{editingUserId ? 'Edit User' : 'Create & Manage Users'}</h2>
                     <form onSubmit={handleUserFormSubmit} className="space-y-6">
-                        {/* Top two-column grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Unique ID</label>
@@ -1056,6 +1218,18 @@ function MasterDashboard({ user, userRole, onLogout }) {
                                 </select>
                             </div>
                             <div>
+                                <label className="block text-sm font-medium text-gray-700">Section</label>
+                                <div 
+                                    onClick={() => setIsAddSectionModalOpen(true)} 
+                                    className="mt-1 w-full p-2 border border-gray-300 rounded-md bg-white cursor-pointer min-h-[42px] flex items-center"
+                                >
+                                    {selectedSections.length > 0 ? 
+                                        <span className="text-black">{selectedSections.join(', ')}</span> : 
+                                        <span className="text-gray-500">Select sections...</span>
+                                    }
+                                </div>
+                            </div>
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700">Assign Role</label>
                                 <select value={newUserRole} onChange={(e) => setNewUserRole(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
                                     <option value="consumer">Consumer</option>
@@ -1066,7 +1240,6 @@ function MasterDashboard({ user, userRole, onLogout }) {
                             </div>
                         </div>
 
-                        {/* Bottom three-column grid for username and passwords */}
                         {newUserRole !== 'messenger' && !editingUserId && (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 pt-2">
                                 <div>
@@ -1092,7 +1265,6 @@ function MasterDashboard({ user, userRole, onLogout }) {
                             </div>
                         )}
                         
-                        {/* Special case for editing a user (Username only) */}
                         {newUserRole !== 'messenger' && editingUserId && (
                              <div className="pt-2">
                                 <label className="block text-sm font-medium text-gray-700">Username</label>
@@ -1102,7 +1274,6 @@ function MasterDashboard({ user, userRole, onLogout }) {
                             </div>
                         )}
 
-                        {/* Buttons */}
                         <div className="flex gap-4 pt-4">
                             {editingUserId && (
                                 <button type="button" onClick={resetUserForm} className="w-full py-2 px-4 bg-gray-500 text-white font-semibold rounded-md hover:bg-gray-600">Cancel</button>
@@ -1122,6 +1293,7 @@ function MasterDashboard({ user, userRole, onLogout }) {
                                    <th className="p-3 text-base font-semibold text-gray-600">DOB</th>
                                    <th className="p-3 text-base font-semibold text-gray-600">Phone</th>
                                    <th className="p-3 text-base font-semibold text-gray-600">Designation</th>
+                                   <th className="p-3 text-base font-semibold text-gray-600">Section</th>
                                    <th className="p-3 text-base font-semibold text-gray-600">Username</th>
                                    <th className="p-3 text-base font-semibold text-gray-600">Role</th>
                                    <th className="p-3 text-base font-semibold text-gray-600">Action</th>
@@ -1135,6 +1307,7 @@ function MasterDashboard({ user, userRole, onLogout }) {
                                        <td className="p-3 text-sm">{formatDate(u.dateOfBirth) || 'N/A'}</td>
                                        <td className="p-3 text-sm">{u.phoneNumber || 'N/A'}</td>
                                        <td className="p-3 text-sm">{u.designation || 'N/A'}</td>
+                                       <td className="p-3 text-sm">{(u.sections || []).join(', ') || 'N/A'}</td>
                                        <td className="p-3 text-sm">{u.email ? u.email.split('@')[0] : 'N/A'}</td>
                                        <td className="p-3 capitalize text-sm">{u.role || 'N/A'}</td>
                                        <td className="p-3 flex gap-2">
@@ -1143,7 +1316,7 @@ function MasterDashboard({ user, userRole, onLogout }) {
                                        </td>
                                    </tr>
                                ))}
-                               {users.length === 0 && <tr><td colSpan="6" className="text-center p-8 text-gray-500">No users found.</td></tr>}
+                               {users.length === 0 && <tr><td colSpan="9" className="text-center p-8 text-gray-500">No users found.</td></tr>}
                            </tbody>
                         </table>
                     </div>
@@ -1152,7 +1325,6 @@ function MasterDashboard({ user, userRole, onLogout }) {
                     <div className="flex-shrink-0">
                         <h2 className="text-2xl font-semibold mb-4">{editingMaterialId ? 'Edit Material' : 'Add Material'}</h2>
                         <form onSubmit={handleMaterialFormSubmit} className="space-y-4 p-4 border rounded-md">
-                            {/* Row 1: Name, Type, Info */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Material Name</label>
@@ -1173,7 +1345,6 @@ function MasterDashboard({ user, userRole, onLogout }) {
                                     </select>
                                 </div>
                             </div>
-                            {/* Row 2: Units */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Caseworker Units</label>
@@ -1184,7 +1355,6 @@ function MasterDashboard({ user, userRole, onLogout }) {
                                     <input type="text" placeholder="e.g., Rim" value={consumerUnit} onChange={(e) => setConsumerUnit(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" required />
                                 </div>
                             </div>
-                            {/* Buttons */}
                             <div className="flex gap-2 justify-end pt-2">
                                 {editingMaterialId && (
                                     <button type="button" onClick={resetMaterialForm} className="px-4 py-2 bg-gray-500 text-white font-semibold rounded-md hover:bg-gray-600">Cancel</button>
@@ -1281,10 +1451,19 @@ function MasterDashboard({ user, userRole, onLogout }) {
                     onAddDesignation={handleAddDesignation}
                 />
             )}
+            {isAddSectionModalOpen && (
+                <AddSectionModal
+                    availableSections={availableSections}
+                    selectedSections={selectedSections}
+                    onClose={() => setIsAddSectionModalOpen(false)}
+                    onSave={setSelectedSections}
+                    onRenameSection={handleRenameSection}
+                    onAddSection={handleAddSection}
+                />
+            )}
         </div>
     );
 }
-
 // --- Caseworker Dashboard Component ---
 function CaseworkerDashboard({ user, userRole, onLogout }) {
   const [activeTab, setActiveTab] = useState('dataEntry');
@@ -1594,6 +1773,7 @@ function ReportsTab() {
         } else if (activeReportTab === 'annualReport') {
             handleGenerateAnnualReport();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [toDate, fromDate, activeReportTab, reportMonth, reportYear, selectedYear]);
 
     const exportToPDF = () => {
@@ -2130,7 +2310,6 @@ function AnnualVerificationReport({ user }) {
     const [returnableItems, setReturnableItems] = useState([]);
     const [users, setUsers] = useState({});
     const [itemConditions, setItemConditions] = useState({});
-    const [approvalRequests, setApprovalRequests] = useState({});
 
     useEffect(() => {
         const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
@@ -2139,14 +2318,6 @@ function AnnualVerificationReport({ user }) {
                 usersMap[doc.id] = doc.data();
             });
             setUsers(usersMap);
-        });
-
-        const unsubscribeApprovalRequests = onSnapshot(collection(db, 'approval_requests'), (snapshot) => {
-            const requestsMap = {};
-            snapshot.forEach(doc => {
-                requestsMap[doc.id] = doc.data();
-            });
-            setApprovalRequests(requestsMap);
         });
 
         const q = query(collection(db, "distribution_requests"));
@@ -2170,7 +2341,6 @@ function AnnualVerificationReport({ user }) {
 
         return () => {
             unsubscribeUsers();
-            unsubscribeApprovalRequests();
             unsubscribeDistribution();
         };
     }, []);
@@ -2522,7 +2692,7 @@ function ConsumerHandover() {
             unsubscribeRequests();
             unsubscribeStock();
         };
-    }, []);
+    }, [users]);
 
     const handleItemUpdate = async (item, newStatus) => {
         const { requestId, name, type, uniqueId, itemIndex, messengerName } = item;
