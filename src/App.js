@@ -1202,41 +1202,43 @@ function MasterDashboard({ user, userRole, onLogout }) {
                                     required 
                                 />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Designation</label>
-                                <select value={designation} onChange={(e) => {
-                                    if (e.target.value === "add-new") {
-                                        setIsAddDesignationModalOpen(true);
-                                        setDesignation('');
-                                    } else {
-                                        setDesignation(e.target.value);
-                                    }
-                                }} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
-                                    <option value="">Select Designation</option>
-                                    {designations.map((d, index) => <option key={index} value={d.name}>{d.name}</option>)}
-                                    <option value="add-new">Add New Designation...</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Section</label>
-                                <div 
-                                    onClick={() => setIsAddSectionModalOpen(true)} 
-                                    className="mt-1 w-full p-2 border border-gray-300 rounded-md bg-white cursor-pointer min-h-[42px] flex items-center"
-                                >
-                                    {selectedSections.length > 0 ? 
-                                        <span className="text-black">{selectedSections.join(', ')}</span> : 
-                                        <span className="text-gray-500">Select sections...</span>
-                                    }
+                            <div className="md:col-span-2 grid md:grid-cols-3 gap-x-8 gap-y-4 items-end">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Designation</label>
+                                    <select value={designation} onChange={(e) => {
+                                        if (e.target.value === "add-new") {
+                                            setIsAddDesignationModalOpen(true);
+                                            setDesignation('');
+                                        } else {
+                                            setDesignation(e.target.value);
+                                        }
+                                    }} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                                        <option value="">Select Designation</option>
+                                        {designations.map((d, index) => <option key={index} value={d.name}>{d.name}</option>)}
+                                        <option value="add-new">Add New Designation...</option>
+                                    </select>
                                 </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Assign Role</label>
-                                <select value={newUserRole} onChange={(e) => setNewUserRole(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                                    <option value="consumer">Consumer</option>
-                                    <option value="caseworker">Caseworker</option>
-                                    <option value="approver">Approver</option>
-                                    <option value="messenger">Messenger</option>
-                                </select>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Section</label>
+                                    <div 
+                                        onClick={() => setIsAddSectionModalOpen(true)} 
+                                        className="mt-1 w-full p-2 border border-gray-300 rounded-md bg-white cursor-pointer min-h-[42px] flex items-center"
+                                    >
+                                        {selectedSections.length > 0 ? 
+                                            <span className="text-black">{selectedSections.join(', ')}</span> : 
+                                            <span className="text-gray-500">Select sections...</span>
+                                        }
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Assign Role</label>
+                                    <select value={newUserRole} onChange={(e) => setNewUserRole(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                        <option value="consumer">Consumer</option>
+                                        <option value="caseworker">Caseworker</option>
+                                        <option value="approver">Approver</option>
+                                        <option value="messenger">Messenger</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
@@ -2661,6 +2663,7 @@ function ConsumerHandover() {
                             itemIndex: index,
                             requestId: request.id,
                             consumerId: request.consumerId,
+                            section: request.section,
                             // Use the messengerName from the request, or default to the consumer's name
                             messengerName: request.messengerName || consumerInfo.name,
                         });
@@ -2766,6 +2769,7 @@ function ConsumerHandover() {
                                 <th className="p-3 text-sm font-semibold text-gray-600">Sl.No</th>
                                 <th className="p-3 text-sm font-semibold text-gray-600">Consumer Name</th>
                                 <th className="p-3 text-sm font-semibold text-gray-600">Designation</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600">Section</th>
                                 <th className="p-3 text-sm font-semibold text-gray-600">Material</th>
                                 <th className="p-3 text-sm font-semibold text-gray-600">Quantity</th>
                                 <th className="p-3 text-sm font-semibold text-gray-600">Messenger Name</th>
@@ -2780,6 +2784,7 @@ function ConsumerHandover() {
                                         <td className="p-3">{index + 1}</td>
                                         <td className="p-3">{consumerInfo.name || 'N/A'}</td>
                                         <td className="p-3">{consumerInfo.designation || 'N/A'}</td>
+                                        <td className="p-3">{item.section || 'N/A'}</td>
                                         <td className="p-3">{item.name}</td>
                                         <td className="p-3">{item.requiredQuantity} {item.unit ? item.unit : ''}</td>
                                         <td className="p-3">
@@ -2809,6 +2814,7 @@ function ConsumerHandover() {
                                 <th className="p-3 text-sm font-semibold text-gray-600">Sl.No</th>
                                 <th className="p-3 text-sm font-semibold text-gray-600">Consumer Name</th>
                                 <th className="p-3 text-sm font-semibold text-gray-600">Designation</th>
+                                <th className="p-3 text-sm font-semibold text-gray-600">Section</th>
                                 <th className="p-3 text-sm font-semibold text-gray-600">Material</th>
                                 <th className="p-3 text-sm font-semibold text-gray-600">Quantity</th>
                                 <th className="p-3 text-sm font-semibold text-gray-600">Serial Number</th>
@@ -2827,6 +2833,7 @@ function ConsumerHandover() {
                                         <td className="p-3">{index + 1}</td>
                                         <td className="p-3">{consumerInfo.name || 'N/A'}</td>
                                         <td className="p-3">{consumerInfo.designation || 'N/A'}</td>
+                                        <td className="p-3">{item.section || 'N/A'}</td>
                                         <td className="p-3">{item.name}</td>
                                         <td className="p-3">{item.requiredQuantity} {item.unit ? item.unit : ''}</td>
                                         <td className="p-3">
