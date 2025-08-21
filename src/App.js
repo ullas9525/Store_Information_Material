@@ -3676,7 +3676,31 @@ function ExistingItemsTab() {
 
 // --- Approver Dashboard ---
 function ApproverDashboard({ user, userRole, onLogout }) {
-    const [activeTab, setActiveTab] = useState('careWorkerRequest');
+    const [activeTab, setActiveTab] = useState('consumerRequest');
+    const [approverSections, setApproverSections] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!user) return;
+        const fetchApproverSections = async () => {
+            setLoading(true);
+            try {
+                const userDocRef = doc(db, 'users', user.uid);
+                const userDoc = await getDoc(userDocRef);
+                if (userDoc.exists()) {
+                    setApproverSections(userDoc.data().sections || []);
+                } else {
+                    setApproverSections([]);
+                }
+            } catch (error) {
+                console.error("Error fetching approver sections:", error);
+                setApproverSections([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchApproverSections();
+    }, [user]);
 
     const NavTab = ({ tabId, children }) => (
         <button 
@@ -3692,9 +3716,13 @@ function ApproverDashboard({ user, userRole, onLogout }) {
     );
 
     const renderContent = () => {
+        if (loading) {
+            return <div className="text-center p-8">Loading your details...</div>;
+        }
+
         switch (activeTab) {
             case 'caseWorkerRequest': return <CaseWorkerRequestTab />;
-            case 'consumerRequest': return <ConsumerRequestTab />;
+            case 'consumerRequest': return <ConsumerRequestTab approverSections={approverSections} />;
             case 'existingItems': return <ExistingItemsTab />;
             case 'annualVerification': return <AnnualVerificationTab />;
             default: return <CaseWorkerRequestTab />;
@@ -4098,10 +4126,11 @@ function CaseWorkerRequestTab() {
     );
 }
 
-function ConsumerRequestTab() {
+function ConsumerRequestTab({ approverSections }) {
     const [requests, setRequests] = useState([]);
     const [users, setUsers] = useState({});
     const [itemStates, setItemStates] = useState({});
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const usersUnsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
@@ -4112,17 +4141,37 @@ function ConsumerRequestTab() {
             setUsers(usersMap);
         });
 
-        const q = query(collection(db, "distribution_requests"), where("status", "==", "pending"));
+        if (!approverSections) {
+            setLoading(false);
+            return;
+        };
+
+        if (approverSections.length === 0) {
+            setRequests([]);
+            setLoading(false);
+            return;
+        }
+
+        const q = query(
+            collection(db, "distribution_requests"), 
+            where("status", "==", "pending"),
+            where("section", "in", approverSections)
+        );
+
         const requestsUnsubscribe = onSnapshot(q, (querySnapshot) => {
             const requestsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setRequests(requestsData);
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching consumer requests:", error);
+            setLoading(false);
         });
         
         return () => {
             usersUnsubscribe();
             requestsUnsubscribe();
         };
-    }, []);
+    }, [approverSections]);
 
     const handleStatusChange = (requestId, itemName, status) => {
         setItemStates(prev => ({
@@ -4192,14 +4241,16 @@ function ConsumerRequestTab() {
 
    return (
         <div className="space-y-6">
-            {requests.length === 0 ? (
-                <p className="text-gray-500 text-center mt-8">No pending requests from Consumers.</p>
+            {loading ? (
+                <p className="text-gray-500 text-center mt-8">Loading requests...</p>
+            ) : requests.length === 0 ? (
+                <p className="text-gray-500 text-center mt-8">No pending requests for your assigned sections.</p>
             ) : (
                 requests.map(request => {
                     const consumerInfo = users[request.consumerId] || {};
                     return (
                         <div key={request.id} className="bg-white p-6 rounded-lg shadow-md">
-                            <div className="grid grid-cols-3 gap-4 mb-6">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                                 <div>
                                     <label className="text-sm font-medium text-gray-500">Consumer Name</label>
                                     <p className="font-semibold">{consumerInfo.name || 'N/A'}</p>
@@ -4207,6 +4258,10 @@ function ConsumerRequestTab() {
                                 <div>
                                     <label className="text-sm font-medium text-gray-500">Designation</label>
                                     <p className="font-semibold">{consumerInfo.designation || 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-gray-500">Requested Section</label>
+                                    <p className="font-semibold">{request.section || 'N/A'}</p>
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium text-gray-500">Date</label>
@@ -4269,39 +4324,67 @@ function ConsumerRequestTab() {
 }
 
 // --- Submit Request Modal (for Consumer) ---
-function SubmitRequestModal({ onConfirm, onCancel, messengers, consumerName }) {
+function SubmitRequestModal({ onConfirm, onCancel, messengers, consumerName, consumerSections }) {
     const [selectedMessenger, setSelectedMessenger] = useState(consumerName || '');
+    const [selectedSection, setSelectedSection] = useState('');
+
+    useEffect(() => {
+        // Pre-select the first section if available
+        if (consumerSections && consumerSections.length > 0) {
+            setSelectedSection(consumerSections[0]);
+        }
+    }, [consumerSections]);
 
     const handleSubmit = () => {
-        if (!selectedMessenger) {
-            alert("Please select a messenger.");
+        if (!selectedSection) {
+            alert("Please select a section for the request.");
             return;
         }
-        onConfirm(selectedMessenger);
+        if (!selectedMessenger) {
+            alert("Please select a collector.");
+            return;
+        }
+        onConfirm(selectedMessenger, selectedSection);
     };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
             <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-sm">
                 <h2 className="text-xl font-bold mb-4 text-center">Confirm Submission</h2>
-                <p className="text-center text-gray-600 mb-6">Please select who will be collecting the items.</p>
+                <p className="text-center text-gray-600 mb-6">Please specify the section and collector for this request.</p>
                 
-                <div className="mb-6">
-                    <label htmlFor="messenger" className="block text-sm font-medium text-gray-700 mb-1">Collector's Name</label>
-                    <select
-                        id="messenger"
-                        value={selectedMessenger}
-                        onChange={(e) => setSelectedMessenger(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                    >
-                        {consumerName && <option value={consumerName}>{consumerName} (Myself)</option>}
-                        {messengers.map(m => (
-                            <option key={m.id} value={m.name}>{m.name}</option>
-                        ))}
-                    </select>
+                <div className="space-y-4">
+                    <div>
+                        <label htmlFor="section" className="block text-sm font-medium text-gray-700 mb-1">Section</label>
+                        <select
+                            id="section"
+                            value={selectedSection}
+                            onChange={(e) => setSelectedSection(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                        >
+                            <option value="">Select a Section</option>
+                            {(consumerSections || []).map(section => (
+                                <option key={section} value={section}>{section}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="messenger" className="block text-sm font-medium text-gray-700 mb-1">Collector's Name</label>
+                        <select
+                            id="messenger"
+                            value={selectedMessenger}
+                            onChange={(e) => setSelectedMessenger(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                        >
+                            {consumerName && <option value={consumerName}>{consumerName} (Myself)</option>}
+                            {messengers.map(m => (
+                                <option key={m.id} value={m.name}>{m.name}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
-                <div className="flex justify-center gap-4">
+                <div className="flex justify-center gap-4 mt-6">
                     <button onClick={onCancel} className="px-6 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
                     <button onClick={handleSubmit} className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Confirm</button>
                 </div>
@@ -4329,6 +4412,7 @@ function ConsumerDashboard({ user, onLogout }) {
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [messengers, setMessengers] = useState([]);
     const [consumerName, setConsumerName] = useState('');
+    const [consumerSections, setConsumerSections] = useState([]);
     
     const formatDate = (timestamp) => {
         if (!timestamp) return 'N/A';
@@ -4426,11 +4510,13 @@ function ConsumerDashboard({ user, onLogout }) {
             setMessengers(messengerList);
         });
 
-        // Fetch current consumer's name
+        // Fetch current consumer's name and sections
         const userDocRef = doc(db, 'users', user.uid);
         const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
             if (doc.exists()) {
-                setConsumerName(doc.data().name);
+                const userData = doc.data();
+                setConsumerName(userData.name);
+                setConsumerSections(userData.sections || []); // Set sections
             }
         });
 
@@ -4546,12 +4632,13 @@ function ConsumerDashboard({ user, onLogout }) {
         setShowConfirmModal(true);
     };
 
-    const confirmSubmit = async (messengerName) => {
+    const confirmSubmit = async (messengerName, section) => {
         try {
             await addDoc(collection(db, 'distribution_requests'), {
                 consumerId: user.uid,
                 consumerEmail: user.email,
-                messengerName: messengerName, // Add messenger name here
+                messengerName: messengerName,
+                section: section, // Add selected section here
                 items: localPendingRequests.map(({id, ...rest}) => rest),
                 status: 'pending',
                 submittedAt: serverTimestamp(),
@@ -4646,6 +4733,7 @@ function ConsumerDashboard({ user, onLogout }) {
                 onCancel={() => setShowConfirmModal(false)}
                 messengers={messengers}
                 consumerName={consumerName}
+                consumerSections={consumerSections}
             />}
             <header className="flex-shrink-0 flex justify-between items-center mb-8">
                 <h1 className="text-3xl font-bold text-gray-800">Consumer Portal</h1>
